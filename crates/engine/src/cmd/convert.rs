@@ -221,8 +221,19 @@ pub(crate) fn content_op(id: lightcraft_catalog::PhotoId, ph: &lightcraft_catalo
 fn fill_missing_meta(id: lightcraft_catalog::PhotoId, ph: &lightcraft_catalog::Photo, info: &crate::media::ProbeInfo) -> Vec<Op> {
     let (mut m, src) = (ph.meta.clone(), &info.meta);
     let before = m.clone();
+    if m.camera_make.is_empty() {
+        m.camera_make = src.camera_make.clone();
+    }
+    if m.camera_model.is_empty() {
+        m.camera_model = src.camera_model.clone();
+    }
     if m.camera.is_empty() {
         m.camera = src.camera.clone();
+    }
+    // A catalog from before Make and Model were kept separately has a label only: once the parts
+    // are known, re-derive the label so "Canon Canon IXUS 185" becomes "Canon IXUS 185" (#1618).
+    if (before.camera_make.is_empty() || before.camera_model.is_empty()) && (!m.camera_make.is_empty() || !m.camera_model.is_empty()) {
+        m.camera = lightcraft_catalog::camera_label(&m.camera_make, &m.camera_model);
     }
     if m.lens.is_empty() {
         m.lens = src.lens.clone();
@@ -418,6 +429,24 @@ mod tests {
         // nothing missing → nothing to do
         ph.meta = (**meta).clone();
         ph.captured = Some("2026-10-04T08:16:11".into());
+        assert!(fill_missing_meta(PhotoId(1), &ph, &info).is_empty());
+    }
+
+    /// A catalog from before Make and Model were kept separately gets its parts backfilled and its
+    /// label re-derived ("Canon Canon IXUS 185" → "Canon IXUS 185") on reload (#1618).
+    #[test]
+    fn reload_backfills_camera_parts_and_rederives_label() {
+        let mut ph = Photo::new(PhotoId(1), Source::File { path: "/x.jpg".into() }, "x.jpg", "jpeg", 4000, 3000, "2026-10-06T00:00:00");
+        ph.meta.camera = "Canon Canon IXUS 185".into();
+        let mut info = crate::media::ProbeInfo::default();
+        info.meta.camera = "Canon IXUS 185".into();
+        info.meta.camera_make = "Canon".into();
+        info.meta.camera_model = "Canon IXUS 185".into();
+        let ops = fill_missing_meta(PhotoId(1), &ph, &info);
+        let Some(Op::SetMeta { meta, .. }) = ops.first() else { panic!("{ops:?}") };
+        assert_eq!((meta.camera_make.as_str(), meta.camera_model.as_str(), meta.camera.as_str()), ("Canon", "Canon IXUS 185", "Canon IXUS 185"));
+        // nothing left missing → nothing to do
+        ph.meta = (**meta).clone();
         assert!(fill_missing_meta(PhotoId(1), &ph, &info).is_empty());
     }
 

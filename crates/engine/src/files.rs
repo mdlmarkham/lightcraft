@@ -15,9 +15,12 @@ use crate::media::{DenoiseSpec, FileLoader, FileProbe, PairLoader, PreviewLoader
 
 fn meta_of(m: &lightcraft_meta::Metadata) -> (Meta, Option<String>) {
     let shutter = m.exposure_time.map(|t| if t >= 1.0 { format!("{t:.0}") } else { format!("1/{:.0}", 1.0 / t) }).unwrap_or_default();
-    let camera = [m.make.clone().unwrap_or_default(), m.model.clone().unwrap_or_default()].join(" ").trim().to_string();
+    let camera_make = m.make.clone().unwrap_or_default();
+    let camera_model = m.model.clone().unwrap_or_default();
     let meta = Meta {
-        camera,
+        camera: lightcraft_catalog::camera_label(&camera_make, &camera_model),
+        camera_make,
+        camera_model,
         lens: m.lens_model.clone().unwrap_or_default(),
         focal_mm: m.focal_length.map(|f| f as f32),
         aperture: m.f_number.map(|f| f as f32),
@@ -1031,6 +1034,17 @@ mod tests {
             ..Default::default()
         };
         assert_eq!(super::meta_of(&m).0.keywords, ["travel|Italy|Rome", "beach"]);
+    }
+
+    /// Make and Model are kept separately for exports; the label drops a repeated maker (#1618).
+    #[test]
+    fn imported_camera_keeps_make_and_model() {
+        let m = lightcraft_meta::Metadata { make: Some("Canon".into()), model: Some("Canon IXUS 185".into()), ..Default::default() };
+        let (meta, _) = super::meta_of(&m);
+        assert_eq!((meta.camera_make.as_str(), meta.camera_model.as_str()), ("Canon", "Canon IXUS 185"));
+        assert_eq!(meta.camera, "Canon IXUS 185");
+        let m = lightcraft_meta::Metadata { make: Some("Sony".into()), model: Some("A7 IV".into()), ..Default::default() };
+        assert_eq!(super::meta_of(&m).0.camera, "Sony A7 IV");
     }
 
     use super::*;
