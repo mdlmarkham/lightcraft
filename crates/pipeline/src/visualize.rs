@@ -199,11 +199,22 @@ pub fn apply(img: &mut Rgba8, o: Overlay, plan: &Plan<'_>, mask: Option<&Plane>,
             }
         }
         Overlay::AllMasks { view, color, opacity } => {
+            // one draw of the planes' union: the views replace pixels rather than composite, so
+            // drawing the planes one by one would let each later one erase the earlier masks' marks
             if let Some(planes) = masks {
-                for a in planes {
-                    if (a.width, a.height) == (img.width, img.height) {
-                        mask_view(img, a, view, color, opacity);
+                let mut union: Option<Plane> = None;
+                for a in planes.iter().filter(|a| (a.width, a.height) == (img.width, img.height)) {
+                    match union.as_mut() {
+                        Some(u) => {
+                            for (u, a) in u.data.iter_mut().zip(&a.data) {
+                                *u = u.max(*a);
+                            }
+                        }
+                        None => union = Some(a.clone()),
                     }
+                }
+                if let Some(u) = union.as_ref() {
+                    mask_view(img, u, view, color, opacity);
                 }
             }
         }
@@ -425,17 +436,17 @@ mod tests {
             components: vec![MaskComponent { name: None, op: MaskOp::Add, invert: false, shape: right }],
             ..Default::default()
         });
-        let plain = render(&src, &info, &s, &RenderRequest::fit(80, 40)).image;
         let o = Overlay::AllMasks { view: MaskView::WhiteOnBlack, color: [255, 0, 0], opacity: 100 };
         let img = render(&src, &info, &s, &RenderRequest { overlay: o, ..RenderRequest::fit(80, 40) }).image;
         let (in_l, in_r, mid) = (20 * 80 + 12, 20 * 80 + 60, 20 * 80 + 40);
         assert_eq!(img.data[in_l], [255; 4], "left mask region painted");
         assert_eq!(img.data[in_r], [255; 4], "right mask region painted");
         assert_eq!(img.data[mid], [0, 0, 0, 255], "between the masks: black");
-        // a hidden mask is skipped
+        // a hidden mask is skipped: like the single-mask view, the overlay replaces the photo, so
+        // its region shows the view's black — only visible masks paint white
         s.masks[1].visible = false;
         let img2 = render(&src, &info, &s, &RenderRequest { overlay: o, ..RenderRequest::fit(80, 40) }).image;
-        assert_eq!(img2.data[in_r], plain.data[in_r], "hidden right mask not painted");
+        assert_eq!(img2.data[in_r], [0, 0, 0, 255], "hidden right mask not painted");
         assert_eq!(img2.data[in_l], [255; 4], "visible left mask still painted");
         // parts round trip and a stable, distinct cache key
         let (k, v) = o.to_parts();
