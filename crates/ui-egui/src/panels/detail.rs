@@ -779,9 +779,7 @@ pub fn show(app: &mut LightcraftApp, ui: &mut egui::Ui) {
     let rendering = ui.ctx().data_mut(|d| rendering_overdue(d.get_temp_mut_or(egui::Id::new("loupe-rendering"), None), keys, coming, now));
     // the render failed while a stand-in is up: what is on screen is all there will be (also while
     // a library change retries it)
-    let failed = (!rendering
-        && !(show_before && !split)
-        && !matches!(shown, "render" | "none" | "hover")
+    let failed = (!(rendering || (show_before && !split) || matches!(shown, "render" | "none" | "hover"))
         && (!app.renderer.is_pending(Slot::Main) || app.renderer.retrying(Slot::Main)))
     .then(|| app.renderer.failure_of(Slot::Main, id))
     .flatten();
