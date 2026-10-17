@@ -991,7 +991,8 @@ fn same_folder_as_original_exports_next_to_each_photo() {
     let exists = |p: &str| std::path::Path::new(p).exists();
     let files = crate::export::export_batch(&mut s, &ids, &o, &to, &mut crate::export::write_file, &exists).unwrap();
     let written: Vec<&str> = files.iter().map(|f| f["path"].as_str().unwrap()).collect();
-    let mut want = vec![a.join("Exports/IMG_1.jpg").to_string_lossy().to_string(), b.join("Exports/IMG_1.jpg").to_string_lossy().to_string()];
+    // the export joins with "/" on every platform (export.rs `join_path`), so expect that form
+    let mut want = vec![format!("{}/Exports/IMG_1.jpg", a.to_string_lossy()), format!("{}/Exports/IMG_1.jpg", b.to_string_lossy())];
     let mut got: Vec<String> = written.iter().map(|p| p.to_string()).collect();
     want.sort();
     got.sort();
@@ -1038,7 +1039,7 @@ fn same_folder_as_original_refuses_photos_without_a_folder() {
         assert_eq!(f["photo"], id.0, "{f}");
         assert!(f["error"].as_str().unwrap().contains("no folder on disk"), "{f}");
     }
-    drop(write);
+    let _ = write; // move the closure to end its borrow of `written`
     assert!(written.is_empty(), "{written:?}");
 
     // a photo on disk whose folder is gone (moved, an unplugged drive)
