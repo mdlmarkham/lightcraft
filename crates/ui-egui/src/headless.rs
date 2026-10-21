@@ -3445,6 +3445,50 @@ mod tests {
         h.settle(SETTLE);
     }
 
+    /// Culling (#2398): the Info panel's label swatches act on the active photo only (not the whole
+    /// selection), and the bottom bar's label swatches set the active photo's label the way its
+    /// stars and flags do.
+    #[test]
+    fn culling_label_swatches() {
+        let mut h = demo([1200.0, 900.0]);
+        let t = Duration::from_secs(10);
+        let label = |h: &Headless, id: u64| h.app.session.catalog.photo(lightcraft_catalog::PhotoId(id)).unwrap().label;
+        let vis: Vec<u64> = h.app.session.visible_cloned().iter().map(|p| p.0).collect();
+        h.request("engine.execute", json!({"command": "library.select", "params": {"ids": [vis[0], vis[1]]}}), t);
+        h.request("engine.execute", json!({"command": "view.compare"}), t);
+        h.request("ui.set", json!({"right": "info"}), t);
+        h.settle(SETTLE);
+        // the Info panel shows the candidate (the active photo); its swatch labels that one only
+        let r = h.request("ui.clickWidget", json!({"id": "label:green"}), t);
+        assert_eq!(r["ok"], true, "{r}");
+        assert_eq!(label(&h, vis[1]), Some(lightcraft_catalog::ColorLabel::Green), "the candidate gets the label");
+        assert_eq!(label(&h, vis[0]), None, "the select keeps no label");
+        // the bottom bar's swatches, next to the stars and flags that already worked
+        let r = h.request("ui.clickWidget", json!({"id": "label:bottom:red"}), t);
+        assert_eq!(r["ok"], true, "{r}");
+        assert_eq!(label(&h, vis[1]), Some(lightcraft_catalog::ColorLabel::Red));
+        assert_eq!(label(&h, vis[0]), None);
+        // clicking the current colour clears it
+        h.request("ui.clickWidget", json!({"id": "label:bottom:red"}), t);
+        assert_eq!(label(&h, vis[1]), None);
+        h.settle(SETTLE);
+        // back in the grid, the bottom bar labels the selection as before, and a cell's badge
+        // circle opens the label menu for that one photo
+        h.request("ui.set", json!({"view": "photoGrid"}), t);
+        h.request("ui.clickWidget", json!({"id": "label:bottom:green"}), t);
+        h.settle(SETTLE);
+        assert_eq!(label(&h, vis[0]), Some(lightcraft_catalog::ColorLabel::Green), "in the grid the bottom bar labels the selection");
+        assert_eq!(label(&h, vis[1]), Some(lightcraft_catalog::ColorLabel::Green));
+        let r = h.request("ui.clickWidget", json!({"id": format!("badge:label:{}", vis[0])}), t);
+        assert_eq!(r["ok"], true, "{r}");
+        h.settle(SETTLE);
+        assert!(egui::Popup::is_any_open(&h.view.ctx), "the badge circle opens the label menu");
+        h.request("ui.clickWidget", json!({"id": "badgeLabel:none"}), t);
+        h.settle(SETTLE);
+        assert_eq!(label(&h, vis[0]), None, "the badge menu clears that photo's label");
+        assert_eq!(label(&h, vis[1]), Some(lightcraft_catalog::ColorLabel::Green), "the other photo keeps its label");
+    }
+
     /// File → Import Photos… opens the import review: candidates with thumbnails, the duplicate is
     /// unchecked; unchecking a cell and confirming imports the rest in batches, into a new album
     /// with keywords, as one undo step.

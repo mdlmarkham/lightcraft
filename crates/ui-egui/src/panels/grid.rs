@@ -719,7 +719,19 @@ fn cell(app: &mut LightcraftApp, ui: &mut egui::Ui, id: PhotoId, r: Rect, square
             right -= 20.0;
         }
         if let Some(l) = photo.label {
-            p.circle(pos2(right - 12.0, bar.center().y), 5.0, label_color(l), Stroke::new(1.0, Color32::from_black_alpha(120)));
+            let c = pos2(right - 12.0, bar.center().y);
+            p.circle(c, 5.0, label_color(l), Stroke::new(1.0, Color32::from_black_alpha(120)));
+            // the circle opens the label menu (#2398): pressing it used to do nothing
+            let hit = Rect::from_center_size(c, vec2(16.0, 16.0));
+            let lresp = ui.interact(hit, egui::Id::new(("badge-label", id.0)), Sense::click());
+            crate::widgets::announce(&lresp, crate::i18n::color_label(&app.session.catalog, l));
+            register(ui.ctx(), format!("badge:label:{}", id.0), hit);
+            egui::Popup::menu(&lresp).show(|ui| {
+                if let Some(choice) = label_items(app, ui, Some(l), "badgeLabel") {
+                    let _ = app.run("photo.label", json!({"ids": [id.0], "label": label_param(choice)}));
+                    ui.close();
+                }
+            });
         }
     }
     if let Some(name) = &photo.copy_name {
