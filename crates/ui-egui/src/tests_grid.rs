@@ -125,6 +125,33 @@ fn the_format_badge_is_readable_in_light_mode() {
     assert!(checked > 0, "the format badge's text is drawn on a chip");
 }
 
+/// The active photo's selection border is the theme's strongest ink, not hardcoded white: white
+/// was invisible against the light themes' backgrounds (#2382).
+#[test]
+fn the_active_selection_border_is_visible_in_light_mode() {
+    for view in [ViewMode::PhotoGrid, ViewMode::SquareGrid] {
+        let mut h = grid(view);
+        select(&mut h, PhotoId(1));
+        h.app.ui.settings.appearance_mode = AppearanceMode::Light;
+        h.step();
+        h.step();
+        let want = crate::theme::Tokens::get(&h.view.ctx).selection;
+        assert!(want != egui::Color32::WHITE, "the light theme's selection border is dark");
+        let thumb = widget(&h, "thumb:1").expect("the selected photo's cell");
+        let strokes: Vec<egui::Color32> = h
+            .view
+            .painted_shapes()
+            .iter()
+            .filter_map(|s| match s {
+                egui::epaint::Shape::Rect(r) if r.stroke.width == 2.0 && r.rect.intersects(thumb) => Some(r.stroke.color),
+                _ => None,
+            })
+            .collect();
+        assert!(!strokes.is_empty(), "the active photo's border is drawn");
+        assert!(strokes.contains(&want), "the active border uses the theme's selection colour, got {strokes:?}");
+    }
+}
+
 #[test]
 fn grid_headers_selection_scrolling_stacks_and_shape_changes() {
     let mut h = grid(ViewMode::PhotoGrid);
