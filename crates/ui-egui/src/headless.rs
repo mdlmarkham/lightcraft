@@ -1303,6 +1303,53 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
+    /// The People view's sort dropdown orders the named people by photo count (most first, the
+    /// default) or by name A–Z (#2496).
+    #[test]
+    fn people_panel_sorts_by_count_or_by_name() {
+        use crate::state::{PeopleSort, ViewMode};
+        use lightcraft_catalog::Op;
+        let mut h = demo([1400.0, 900.0]);
+        let t = Duration::from_secs(10);
+        let ids: Vec<_> = h.app.session.catalog.photos().map(|p| p.id).take(3).collect();
+        let face = |x: f64, name: &str| lightcraft_meta::Region {
+            rect: lightcraft_geom::Rect { x0: x, y0: 0.2, x1: x + 0.25, y1: 0.6 },
+            kind: lightcraft_meta::RegionKind::Face,
+            name: Some(name.to_string()),
+            description: None,
+        };
+        // Bravo on three photos, Charlie on two, alpha on one: count order and name order differ
+        for (id, regions) in [
+            (ids[0], vec![face(0.1, "Bravo"), face(0.4, "Charlie"), face(0.7, "alpha")]),
+            (ids[1], vec![face(0.1, "Bravo"), face(0.4, "Charlie")]),
+            (ids[2], vec![face(0.1, "Bravo")]),
+        ] {
+            let mut meta = h.app.session.catalog.photo(id).unwrap().meta.clone();
+            meta.regions = regions;
+            h.app.session.commit("setup", Op::SetMeta { id, meta: Box::new(meta) }).unwrap();
+        }
+        let order = |h: &Headless| h.app.widgets.iter().filter(|(w, _)| w.starts_with("person:")).map(|(w, _)| w.clone()).collect::<Vec<_>>();
+        let pick = |h: &mut Headless, item: &str| {
+            let r = h.request("ui.clickWidget", json!({"id": "dropdown:peopleSort"}), t);
+            assert_eq!(r["ok"], true, "open the sort menu: {r}");
+            h.settle(SETTLE);
+            let r = h.request("ui.clickWidget", json!({"id": item}), t);
+            assert_eq!(r["ok"], true, "{item}: {r}");
+            h.settle(SETTLE);
+        };
+        h.request("engine.execute", json!({"command": "view.people"}), t);
+        h.settle(SETTLE);
+        h.step();
+        assert_eq!(h.app.ui.view, ViewMode::People);
+        assert_eq!(h.app.ui.people_sort, PeopleSort::Count);
+        assert_eq!(order(&h), ["person:Bravo", "person:Charlie", "person:alpha"], "most photos first by default");
+        pick(&mut h, "peopleSortMenu:name");
+        assert_eq!(h.app.ui.people_sort, PeopleSort::Name);
+        assert_eq!(order(&h), ["person:alpha", "person:Bravo", "person:Charlie"], "A–Z by name");
+        pick(&mut h, "peopleSortMenu:count");
+        assert_eq!(order(&h), ["person:Bravo", "person:Charlie", "person:alpha"], "back to most photos first");
+    }
+
     /// A click on a person's card opens their page, which shows only cropped faces (one per face, not per photo); a click
     /// on one opens its photo; Back, the People button and Escape return to everyone.
     #[test]

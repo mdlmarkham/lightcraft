@@ -78,6 +78,34 @@ impl BeforeAfter {
     }
 }
 
+/// How the People view orders the named people (#2496).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum PeopleSort {
+    /// Most photos first, then by name (as Lightroom does).
+    #[default]
+    Count,
+    /// Alphabetical by name.
+    Name,
+}
+
+impl PeopleSort {
+    /// The id used in widget names (`peopleSortMenu:{id}`).
+    pub fn id(self) -> &'static str {
+        match self {
+            PeopleSort::Count => "count",
+            PeopleSort::Name => "name",
+        }
+    }
+    /// The choice named in the header's sort dropdown.
+    pub fn label(self) -> &'static str {
+        match self {
+            PeopleSort::Count => "Photo count",
+            PeopleSort::Name => "Name (A–Z)",
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum CropOverlay {
@@ -650,6 +678,8 @@ pub struct UiState {
     pub presets: bool,
     /// Presets column: show a live thumbnail of the photo with each preset.
     pub preset_thumbs: bool,
+    /// People view: order the named people by photo count (most first) or by name (A–Z).
+    pub people_sort: PeopleSort,
     pub filmstrip: bool,
     pub zoom: Zoom,
     /// Pan offset of the loupe when zoomed (image-normalized centre).
@@ -1281,6 +1311,7 @@ impl Default for UiState {
             right: RightPanel::Edit,
             presets: false,
             preset_thumbs: false,
+            people_sort: PeopleSort::Count,
             filmstrip: true,
             zoom: Zoom::Fit,
             pan: (0.5, 0.5),
