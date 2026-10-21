@@ -446,6 +446,11 @@ fn mask_menu(app: &mut LightcraftApp, ui: &mut egui::Ui, id: u32, name: &str, vi
         let _ = app.run("mask.delete", json!({"id": id}));
         ui.close();
     }
+    // One undo step brings every mask back (#2466).
+    if ui.button(menu_label("Delete All Masks")).clicked() {
+        let _ = app.run("mask.deleteAll", json!({}));
+        ui.close();
+    }
 }
 
 /// Overlay colours offered as swatches (the colour of the selected one is used for the tint).
@@ -903,6 +908,7 @@ mod tests {
         crate::i18n::set_language(crate::i18n::Locale::Fr);
         for (english, translated) in [
             ("Duplicate Mask", "Dupliquer le masque"),
+            ("Delete All Masks", "Supprimer tous les masques"),
             ("Invert Mask", "Inverser le masque"),
             ("Hide Mask", "Masquer le masque"),
             ("Move Up", "Monter"),

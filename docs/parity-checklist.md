@@ -1,6 +1,6 @@
 # Lightroom parity checklist
 
-> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-21 · **Change:** patch (LR-IMP-FORMATS: planar TIFF (PlanarConfiguration 2) decodes every band, issue #2462; status unchanged) · **Target:** Adobe Lightroom Classic 15.5 / Lightroom 9.6
+> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-21 · **Change:** patch (LR-MASK-PANEL: the mask right-click menu offers Delete All Masks, issue #2466; status unchanged) · **Target:** Adobe Lightroom Classic 15.5 / Lightroom 9.6
 
 The measured, row-by-row checklist: one row per Lightroom feature, menu item and shortcut, what we
 have and what is missing. It answers *does the feature exist?* (feature breadth). Whether it is good
@@ -289,7 +289,7 @@ differences and missing bindings are in [ui-parity.md](ui-parity.md#shortcuts).
 
 | Id | Feature | Tier | Status | Evidence | Missing / notes |
 |---|---|---|---|---|---|
-| LR-MASK-PANEL | Masks panel | P0 | ✅ | `cmd:panel.masking`, `cmd:mask.add`, `cmd:mask.select`, `cmd:mask.rename`, `cmd:mask.duplicate` (`invert`), `cmd:mask.move`, `cmd:mask.visible`, `cmd:mask.delete`, `crates/ui-egui/src/panels/masking.rs` | list with per-mask show/hide eye, double-click rename, right-click menu (duplicate, duplicate and invert, invert, hide, move up/down, rename, delete); fits any panel width (create tiles go to three columns, mask actions wrap, long component names are cut short); no drag-to-reorder |
+| LR-MASK-PANEL | Masks panel | P0 | ✅ | `cmd:panel.masking`, `cmd:mask.add`, `cmd:mask.select`, `cmd:mask.rename`, `cmd:mask.duplicate` (`invert`), `cmd:mask.move`, `cmd:mask.visible`, `cmd:mask.delete`, `cmd:mask.deleteAll`, `crates/ui-egui/src/panels/masking.rs` | list with per-mask show/hide eye, double-click rename, right-click menu (duplicate, duplicate and invert, invert, hide, move up/down, rename, delete, delete all — one undo step, #2466); fits any panel width (create tiles go to three columns, mask actions wrap, long component names are cut short); no drag-to-reorder |
 | LR-MASK-SUBJECT | Select subject | P2 | 🟡 | `cmd:mask.add` (`subject`), `crates/pipeline/src/masks.rs` | saliency heuristic, no segmentation model; a photo that carries person mattes (DNG semantic masks: iPhone ProRAW portrait / skin / hair / teeth / glasses mattes) uses them instead (synthetic files only: no corpus file carries person mattes) |
 | LR-MASK-SKY | Select sky | P2 | 🟡 | `cmd:mask.add` (`sky`), `crates/pipeline/src/masks.rs` (`Mattes`), `crates/raw/src/semantic.rs` | heuristic; a photo that carries a sky matte (DNG semantic mask, e.g. iPhone ProRAW) uses it instead, through orientation / crop / lens corrections, preview = export (checked on one CC0 iPhone 12 Pro ProRAW and synthetic files) |
 | LR-MASK-BACKGROUND | Select background | P2 | 🟡 | `cmd:mask.add` (`background`) | inverse of the subject mask (heuristic, or the photo's person mattes) |
