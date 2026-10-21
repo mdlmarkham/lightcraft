@@ -1921,6 +1921,28 @@ mod tests {
         h.settle(SETTLE);
     }
 
+    /// The keyword filter's "No keyword" (an empty `keyword`) shows only the photos without any (#2461).
+    #[test]
+    fn keyword_filter_no_keyword_shows_untagged_photos() {
+        let mut h = demo([1400.0, 800.0]);
+        let t = Duration::from_secs(10);
+        h.settle(SETTLE);
+        let all = h.app.session.visible_cloned().len();
+        // every demo photo is tagged: take the keywords off the active one
+        let id = h.app.session.active().unwrap();
+        let r = h.request("engine.execute", json!({"command": "photo.setMeta", "params": {"ids": [id], "keywords": []}}), t);
+        assert_eq!(r["ok"], true, "{r}");
+        let r = h.request("engine.execute", json!({"command": "library.filter", "params": {"keyword": ""}}), t);
+        assert_eq!(r["ok"], true, "{r}");
+        assert_eq!(h.app.session.filter.keyword.as_deref(), Some(""));
+        let vis = h.app.session.visible_cloned();
+        assert_eq!(vis.len(), 1, "only the untagged photo");
+        assert_eq!(vis[0], id);
+        h.request("engine.execute", json!({"command": "library.clearFilter"}), t);
+        assert_eq!(h.app.session.visible_cloned().len(), all);
+        h.settle(SETTLE);
+    }
+
     /// The photo grid shows date headers (registered as `group:<date>` widgets); clicking one
     /// selects that day's photos; month headers when zoomed out; none when grouping is off.
     #[test]
