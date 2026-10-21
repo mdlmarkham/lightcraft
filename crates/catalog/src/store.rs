@@ -242,7 +242,7 @@ impl Store for MemStore {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, unix))]
 mod tests_staging {
     // its only test is unix-only; on other platforms the import would be unused
     #[cfg(unix)]
