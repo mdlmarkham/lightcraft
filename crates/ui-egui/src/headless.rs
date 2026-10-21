@@ -1981,6 +1981,41 @@ mod tests {
         assert_eq!(groups(&h), groups_before);
     }
 
+    /// The applied-preset highlight follows the photo (#2392): applying to one photo highlights
+    /// it, another photo shows none, and returning to the first restores the highlight; undo
+    /// clears it until the edits are back.
+    #[test]
+    fn preset_highlight_follows_the_photo() {
+        let mut h = demo([1400.0, 900.0]);
+        let t = Duration::from_secs(10);
+        h.request("ui.set", json!({"view": "detail"}), t);
+        h.request("engine.execute", json!({"command": "panel.presets"}), t);
+        h.settle(SETTLE);
+        let a = h.app.session.active().unwrap();
+        let b = h.app.session.visible().iter().copied().find(|id| *id != a).unwrap();
+        let shown = |h: &Headless, id: lightcraft_catalog::PhotoId| crate::panels::presets::highlight_for_test(&h.view.ctx, &h.app.session, id);
+        let r = h.request("ui.clickWidget", json!({"id": "preset:lc.bw-high-contrast"}), t);
+        assert_eq!(r["ok"], true, "{r}");
+        h.settle(SETTLE);
+        assert_eq!(shown(&h, a).as_deref(), Some("lc.bw-high-contrast"), "the applied preset is highlighted");
+        // another photo shows none, and the first keeps its memory
+        h.request("engine.execute", json!({"command": "library.select", "params": {"ids": [b.0]}}), t);
+        h.settle(SETTLE);
+        assert_eq!(shown(&h, b), None, "a photo that never received one shows none");
+        assert_eq!(shown(&h, a).as_deref(), Some("lc.bw-high-contrast"), "the memory outlives the selection change");
+        // returning restores the highlight
+        h.request("engine.execute", json!({"command": "library.select", "params": {"ids": [a.0]}}), t);
+        h.settle(SETTLE);
+        assert_eq!(shown(&h, a).as_deref(), Some("lc.bw-high-contrast"));
+        // undo clears it; redo brings it back
+        h.request("engine.execute", json!({"command": "edit.undo"}), t);
+        h.settle(SETTLE);
+        assert_eq!(shown(&h, a), None, "the edits are gone");
+        h.request("engine.execute", json!({"command": "edit.redo"}), t);
+        h.settle(SETTLE);
+        assert_eq!(shown(&h, a).as_deref(), Some("lc.bw-high-contrast"), "the edits are back");
+    }
+
     /// The filter bar drives `library.filter` and saves the view as a smart album.
     #[test]
     fn filter_bar_filters_and_saves_a_smart_album() {

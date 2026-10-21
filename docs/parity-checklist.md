@@ -1,6 +1,6 @@
 # Lightroom parity checklist
 
-> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-21 · **Change:** minor (LRC-LIB-PEOPLE: the People view gains a Sort dropdown — photo count (default) or name A–Z, issue #2496; LR-PRE-PANEL: the presets ⋯ menu gains Expand All Groups / Collapse All Groups, issue #2467; LR-MASK-RADIAL: the radial gradient gains a Feather slider and an on-canvas inner ellipse marking the full-effect boundary, issue #2488; status unchanged) · **Target:** Adobe Lightroom Classic 15.5 / Lightroom 9.6
+> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-21 · **Change:** minor (LR-PRE-PANEL: the applied-preset highlight is remembered per photo — switching photos and returning keeps it, and it clears on undo or further edits, issue #2392; LRC-LIB-PEOPLE: the People view gains a Sort dropdown — photo count (default) or name A–Z, issue #2496; LR-PRE-PANEL: the presets ⋯ menu gains Expand All Groups / Collapse All Groups, issue #2467; LR-MASK-RADIAL: the radial gradient gains a Feather slider and an on-canvas inner ellipse marking the full-effect boundary, issue #2488; status unchanged) · **Target:** Adobe Lightroom Classic 15.5 / Lightroom 9.6
 
 The measured, row-by-row checklist: one row per Lightroom feature, menu item and shortcut, what we
 have and what is missing. It answers *does the feature exist?* (feature breadth). Whether it is good
@@ -319,7 +319,7 @@ differences and missing bindings are in [ui-parity.md](ui-parity.md#shortcuts).
 
 | Id | Feature | Tier | Status | Evidence | Missing / notes |
 |---|---|---|---|---|---|
-| LR-PRE-PANEL | Presets panel | P0 | ✅ | `cmd:panel.presets`, `cmd:preset.apply`, `crates/ui-egui/src/panels/presets.rs` | grouped list with amount; resting on a preset previews it in the loupe (no history entry); optional live thumbnails (⋯ → Show Thumbnails); ⋯ → Expand/Collapse All Groups (#2467) |
+| LR-PRE-PANEL | Presets panel | P0 | ✅ | `cmd:panel.presets`, `cmd:preset.apply`, `crates/ui-egui/src/panels/presets.rs` | grouped list with amount; resting on a preset previews it in the loupe (no history entry); optional live thumbnails (⋯ → Show Thumbnails); ⋯ → Expand/Collapse All Groups (#2467); the applied highlight is remembered per photo and clears on undo or further edits (#2392) |
 | LR-PRE-CREATE | Create preset | P0 | ✅ | `cmd:dialog.createPreset`, `cmd:preset.create` (`groups`) | name, group and a checklist of settings groups (crop, masks, remove, red eye off by default; All / None) |
 | LR-PRE-MANAGE | Manage presets | P1 | ✅ | `cmd:preset.delete`, `cmd:preset.favorite`, `cmd:preset.import`, `cmd:preset.export`, `cmd:preset.rename`, `cmd:preset.update`, `cmd:preset.move` | rename, update with current settings, move to a group (existing or new); no hiding of groups |
 | LR-PRE-AMOUNT | Preset amount | P1 | ✅ | `cmd:preset.apply` (`amount` 0–200) | |
@@ -799,6 +799,7 @@ Latin stays upright. Advanced Japanese composition remains open. Regression cove
 | Date | Change | Summary |
 |---|---|---|
 | 2026-10-21 | minor | LRC-LIB-PEOPLE: the People view gains a Sort dropdown in the header — Photo count (most first, the previous order, the default) or Name (A–Z) (#2496); status unchanged (🟡) |
+| 2026-10-21 | minor | LR-PRE-PANEL: the applied-preset highlight is remembered per photo (#2392); status unchanged (✅) |
 | 2026-10-21 | minor | LR-PRE-PANEL: the presets ⋯ menu gains Expand All Groups / Collapse All Groups (#2467); status unchanged (✅) |
 | 2026-10-21 | minor | LR-MASK-RADIAL: the radial gradient's Feather (0–100, default 50) gets a slider under the component row and the selected ellipse draws its inner full-effect boundary on canvas (#2488); status unchanged (✅) |
 | 2026-10-21 | minor | LRC-LIB-FILTERBAR: the keyword filter offers No keyword — the photos without any keyword (`library.filter` `keyword: ""`; a stored keyword is never empty) — as Lightroom's keyword filters do not (#2461); status unchanged (✅) |
