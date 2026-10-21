@@ -1893,6 +1893,47 @@ mod tests {
         assert!(deep.is_some_and(|n| n > 500), "scrolled rows: {later:?}");
     }
 
+    /// Issue #2467: the ⋯ menu's Expand All Groups / Collapse All Groups open or close every group
+    /// at once (with dozens of imported groups open, finding one meant a long scroll or closing
+    /// the others one by one); a header click still toggles just its own group.
+    #[test]
+    fn preset_menu_expands_and_collapses_all_groups() {
+        let mut h = demo([1400.0, 900.0]);
+        let t = Duration::from_secs(10);
+        h.request("ui.set", json!({"view": "detail"}), t);
+        h.request("engine.execute", json!({"command": "panel.presets"}), t);
+        h.settle(SETTLE);
+        let rows = |h: &Headless| h.app.widgets.iter().filter(|(w, _)| w.starts_with("preset:")).count();
+        let groups = |h: &Headless| h.app.widgets.iter().filter(|(w, _)| w.starts_with("presetGroup:")).count();
+        let (groups_before, rows_before) = (groups(&h), rows(&h));
+        assert!(groups_before > 1, "{groups_before} groups in the demo");
+        assert!(rows_before > 0, "groups start open");
+        let menu = |h: &mut Headless, item: &str| {
+            let r = h.request("ui.clickWidget", json!({"id": "icon:presetMore"}), t);
+            assert_eq!(r["ok"], true, "open the ⋯ menu: {r}");
+            h.step();
+            h.step();
+            let r = h.request("ui.clickWidget", json!({"id": item}), t);
+            assert_eq!(r["ok"], true, "{item}: {r}");
+            h.step();
+        };
+        // Collapse All Groups: every group shuts, only headers remain
+        menu(&mut h, "presetMenu:collapseAll");
+        h.step();
+        assert_eq!(rows(&h), 0, "collapsed: no preset rows, only headers");
+        assert_eq!(groups(&h), groups_before);
+        // a header click still opens just its own group
+        h.request("ui.clickWidget", json!({"id": "presetGroup:Color"}), t);
+        h.step();
+        let one = rows(&h);
+        assert!(one > 0, "the clicked group opened");
+        // Expand All Groups: everything back
+        menu(&mut h, "presetMenu:expandAll");
+        h.step();
+        assert_eq!(rows(&h), rows_before, "every group is open again");
+        assert_eq!(groups(&h), groups_before);
+    }
+
     /// The filter bar drives `library.filter` and saves the view as a smart album.
     #[test]
     fn filter_bar_filters_and_saves_a_smart_album() {

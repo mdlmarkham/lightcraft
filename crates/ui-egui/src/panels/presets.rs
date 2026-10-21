@@ -76,6 +76,25 @@ pub fn show(app: &mut LightcraftApp, ui: &mut egui::Ui) {
             let r = ui.checkbox(&mut app.ui.preset_thumbs, crate::i18n::tr("Show Thumbnails"));
             register(ui.ctx(), "presetMenu:thumbnails", r.rect);
             ui.separator();
+            // every group at once (#2467): with dozens of imported groups open, finding one meant a
+            // long scroll or closing the others one by one
+            let groups = grouped(ui.ctx(), &app.session.presets);
+            let any = !groups.is_empty();
+            let expand = ui.add_enabled(any, egui::Button::new(crate::i18n::tr("Expand All Groups")));
+            register(ui.ctx(), "presetMenu:expandAll", expand.rect);
+            if expand.clicked() {
+                for grp in groups.iter() {
+                    ui.data_mut(|d| d.insert_temp(egui::Id::new(("preset-group", &grp.name)), true));
+                }
+            }
+            let collapse = ui.add_enabled(any, egui::Button::new(crate::i18n::tr("Collapse All Groups")));
+            register(ui.ctx(), "presetMenu:collapseAll", collapse.rect);
+            if collapse.clicked() {
+                for grp in groups.iter() {
+                    ui.data_mut(|d| d.insert_temp(egui::Id::new(("preset-group", &grp.name)), false));
+                }
+            }
+            ui.separator();
             if ui.button(crate::i18n::tr("Import Presets…")).clicked() {
                 let _ = app.run("file.importPresets", json!({}));
             }
