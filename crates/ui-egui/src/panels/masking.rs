@@ -664,6 +664,29 @@ fn range_controls(app: &mut LightcraftApp, ui: &mut egui::Ui, comp: usize, shape
                 app.run("mask.update", json!({"component": comp, "shape": MaskShape::ColorRange { samples: samples.clone(), refine: v }}))
             });
         }
+        MaskShape::Radial { feather, .. } => {
+            // Feather: full effect inside the inner ellipse, fading to nothing at the outline
+            let spec = ControlSpec {
+                id: "maskFeather",
+                label: "Feather",
+                section: Section::Light,
+                min: 0.0,
+                max: 100.0,
+                default: 50.0,
+                step: 1.0,
+                decimals: 0,
+                track: Track::Plain,
+            };
+            let out = slider(ui, &spec, *feather, true, None);
+            let base = shape.clone();
+            apply_slider_out(app, &spec, out, |app, v| {
+                let mut s = base.clone();
+                if let MaskShape::Radial { feather, .. } = &mut s {
+                    *feather = v.clamp(0.0, 100.0);
+                }
+                app.run("mask.update", json!({"component": comp, "shape": s}))
+            });
+        }
         _ => {}
     }
 }

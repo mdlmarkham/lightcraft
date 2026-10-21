@@ -2071,17 +2071,25 @@ fn mask_overlay(app: &mut LightcraftApp, ui: &mut egui::Ui, resp: &egui::Respons
         let sel = Some(m.id) == active;
         for (ci, c) in m.components.iter().enumerate() {
             match &c.shape {
-                MaskShape::Radial { center, rx, ry, angle, .. } if sel => {
-                    let pts: Vec<Pos2> = (0..64)
-                        .map(|i| {
-                            let a = i as f64 / 64.0 * std::f64::consts::TAU;
-                            let (s, co) = angle.to_radians().sin_cos();
-                            let (x, y) = (rx * a.cos(), ry * a.sin());
-                            let l = frame_long_norm(map);
-                            map.screen(Point::new(center.x + (x * co - y * s) * l.0, center.y + (x * s + y * co) * l.1))
-                        })
-                        .collect();
-                    p.add(egui::Shape::closed_line(pts, Stroke::new(1.5, Color32::from_white_alpha(230))));
+                MaskShape::Radial { center, rx, ry, angle, feather, .. } if sel => {
+                    let ellipse = |k: f64| -> Vec<Pos2> {
+                        (0..64)
+                            .map(|i| {
+                                let a = i as f64 / 64.0 * std::f64::consts::TAU;
+                                let (s, co) = angle.to_radians().sin_cos();
+                                let (x, y) = (rx * k * a.cos(), ry * k * a.sin());
+                                let l = frame_long_norm(map);
+                                map.screen(Point::new(center.x + (x * co - y * s) * l.0, center.y + (x * s + y * co) * l.1))
+                            })
+                            .collect()
+                    };
+                    p.add(egui::Shape::closed_line(ellipse(1.0), Stroke::new(1.5, Color32::from_white_alpha(230))));
+                    // the feather transition: full effect inside the inner ellipse, fading to
+                    // nothing at the outline (the same falloff the renderer applies)
+                    let f = (*feather / 100.0).clamp(0.0, 1.0);
+                    if f > 0.0 {
+                        p.add(egui::Shape::closed_line(ellipse(1.0 - f), Stroke::new(1.0, Color32::from_white_alpha(110))));
+                    }
 
                     let l = frame_long_norm(map);
                     for (i, a_deg) in [0.0_f64, 90.0_f64, 180.0_f64, 270.0_f64].into_iter().enumerate() {

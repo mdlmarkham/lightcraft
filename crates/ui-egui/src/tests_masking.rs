@@ -265,6 +265,37 @@ fn radial_body_drag_keeps_resize_and_rotation_handles() {
 }
 
 #[test]
+fn radial_feather_slider_updates_the_mask_and_its_falloff() {
+    let mut h = detail("panel.masking");
+    exec(&mut h, "mask.add", json!({"kind": "radial"}));
+    let feather = |h: &Headless| match &develop(h).masks[0].components[0].shape {
+        MaskShape::Radial { feather, .. } => *feather,
+        other => panic!("radial, got {other:?}"),
+    };
+    assert_eq!(feather(&h), 50.0, "the default feather");
+    // just inside the outline (r ≈ 0.91 of the radius): a half feather has mostly faded there
+    let ring = |h: &Headless| mask_coverage(h, 0, 70, 50);
+    let faded = ring(&h);
+    assert!(faded < 0.35, "a 50% feather fades the outer ring, got {faded}");
+
+    // the left end of the Feather slider: a hard edge, the same ring fully selected
+    let r = h.request("ui.clickWidget", json!({"id": "slider:maskFeather", "fx": 0.0}), T);
+    assert_eq!(r["ok"], true, "{r}");
+    assert_eq!(feather(&h), 0.0);
+    assert!(ring(&h) > 0.99, "no feather: the ring is fully selected");
+    exec(&mut h, "edit.undo", json!({}));
+    assert_eq!(feather(&h), 50.0, "the slider edit undoes");
+    exec(&mut h, "edit.redo", json!({}));
+
+    // the right end: the widest feather, the ring almost gone
+    let r = h.request("ui.clickWidget", json!({"id": "slider:maskFeather", "fx": 1.0}), T);
+    assert_eq!(r["ok"], true, "{r}");
+    assert_eq!(feather(&h), 100.0);
+    assert!(ring(&h) < 0.1, "a full feather fades the ring to nearly nothing");
+    h.settle(SETTLE);
+}
+
+#[test]
 fn mask_overlay_keys_and_pins() {
     use lightcraft_pipeline::{MaskView, Overlay};
     let mut h = detail("panel.masking");
