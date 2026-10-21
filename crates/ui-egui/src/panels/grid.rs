@@ -1248,6 +1248,13 @@ pub fn context_menu(app: &mut LightcraftApp, ui: &mut egui::Ui, id: PhotoId) {
     if ui.add_enabled(crate::menus::ui_enabled(app, "app.showInFinder"), egui::Button::new(crate::i18n::tr(crate::menus::reveal_label()))).clicked() {
         let _ = app.run("app.showInFinder", json!({}));
     }
+    let show_folders = ui.add_enabled(crate::menus::ui_enabled(app, "library.showInFolders"), egui::Button::new(crate::i18n::tr("Show in Folders")));
+    register(ui.ctx(), "button:contextShowInFolders", show_folders.rect);
+    if show_folders.clicked()
+        && let Err(e) = app.run("library.showInFolders", json!({}))
+    {
+        app.toast(ui.ctx(), e);
+    }
     if ui.button(crate::i18n::tr("Export…")).clicked() {
         let _ = app.run("dialog.export", json!({}));
     }
