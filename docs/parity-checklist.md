@@ -1,6 +1,6 @@
 # Lightroom parity checklist
 
-> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-21 · **Change:** patch (MENU-CTX-GRID / LRC-LIB-LIBFOLDERS: Show in Folders in the photo context menu makes the photo's folder the source and reveals it in the Folders panel, issue #2437; status unchanged) · **Target:** Adobe Lightroom Classic 15.5 / Lightroom 9.6
+> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-21 · **Change:** minor (LR-BEHAV-WINDOW: a window that opens as large as its screen is zoomed / maximized at the start, so the system fits it to the work area, issue #2472; the row the 2026-10-13 entry promised is now in the table; status unchanged) · **Target:** Adobe Lightroom Classic 15.5 / Lightroom 9.6
 
 The measured, row-by-row checklist: one row per Lightroom feature, menu item and shortcut, what we
 have and what is missing. It answers *does the feature exist?* (feature breadth). Whether it is good
@@ -49,13 +49,13 @@ cited here still exists. Formerly docs/parity.md.
 | U. Map & location (MAP) | 0 | 1 | 1 | 0 | — | 0/1 (0%) |
 | V. Preferences (PREF) | 6 | 2 | 2 | 2 | 1/1 (100%) | 4/5 (80%) |
 | W. Cloud & AI infrastructure (CLOUD / AI) | 1 | 0 | 1 | 2 | — | — |
-| X. Cross-cutting behaviours (BEHAV) | 23 | 6 | 1 | 1 | 8/8 (100%) | 7/10 (70%) |
+| X. Cross-cutting behaviours (BEHAV) | 23 | 7 | 1 | 1 | 8/8 (100%) | 7/10 (70%) |
 | Y. Menus | 84 | 0 | 4 | 8 | 47/47 (100%) | 23/23 (100%) |
 | Z. Keyboard shortcuts (desktop) | 78 | 4 | 2 | 1 | 49/52 (94%) | 24/26 (92%) |
 | Lightroom Classic extras | 40 | 23 | 23 | 8 | — | 24/26 (92%) |
-| **Total** | 419 | 61 | 59 | 35 | 194/201 (97%) | 148/161 (92%) |
+| **Total** | 419 | 62 | 59 | 35 | 194/201 (97%) | 148/161 (92%) |
 
-Weighted completion (✅ = 1, 🟡 = ½, 🚫 left out): **83.4%** of 539 in-scope rows — P0 98.3% of 201 · P1 95.0% of 161 · P2 55.7% of 176.
+Weighted completion (✅ = 1, 🟡 = ½, 🚫 left out): **83.3%** of 540 in-scope rows — P0 98.3% of 201 · P1 95.0% of 161 · P2 55.6% of 177.
 <!-- /parity:summary -->
 
 ## Top gaps and shortcut notes
@@ -485,6 +485,7 @@ differences and missing bindings are in [ui-parity.md](ui-parity.md#shortcuts).
 | LR-BEHAV-LEARN | Tutorials | OOS | 🚫 | | |
 | LR-BEHAV-WHATSNEW | What's new | P2 | ✅ | `cmd:app.whatsNew`, `docs/whats-new.md` | Help ▸ What's New: release highlights |
 | LR-BEHAV-AI-EA | Early-access badges | P2 | ⬜ | | |
+| LR-BEHAV-WINDOW | Window place remembered | P2 | 🟡 | `crates/ui-egui/src/window_place.rs`, `apps/lightcraft/src/main.rs` (`as_remembered`, `PrefsWriter::tick`) | the desktop app's window opens at the size it was left at, zoomed / maximized if it was; full screen and the place on the desktop are not remembered; a window that opens as large as its screen — the usual size on a small one, which the system clamps to the screen, or a size remembered from a larger one — is zoomed / maximized at the start instead, which the system fits to the screen's work area, so its bottom is not under the taskbar (the Dock) and a dialog fitted to the window keeps its buttons on screen (#2472); on macOS, where the system says "zoomed" only as the window opens and when the app zooms it itself, a zoom is judged from what the window reports. Not verified on a real 1366×768 screen |
 | LR-BEHAV-TITLEBAR | Title bar drag and double-click zoom (macOS) | P2 | 🟡 | `crates/ui-egui/src/titlebar.rs`, `crates/ui-egui/src/panels/topbar.rs`, `crates/ui-egui/src/tests_titlebar.rs` | the native title bar is hidden on macOS, so the top bar's empty space (including the traffic-light margin) moves the window and a double-click zooms or restores it; buttons and the search field keep their clicks; ignored in full screen, where the traffic lights are gone and the bar's left buttons move into their space (#1763). Zoom is winit's `Maximized`: it does not follow System Settings › “Double-click a window's title bar to” (Fill / Minimize). a press that starts on a button or the search field never moves the window. Known gap: egui-winit reads the zoomed state only at start-up and after our own `Maximized` command, so a window zoomed another way (green button, Window ▸ Zoom, snapping) makes the first double-click a no-op before the toggle catches up. Checked by hand on a real macOS window (drag, zoom, restore) |
 
 ## Y. Menus
@@ -797,6 +798,7 @@ Latin stays upright. Advanced Japanese composition remains open. Regression cove
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-21 | minor | LR-BEHAV-WINDOW: a window that opens as large as its screen (the usual size on a small one, which the system clamps to the screen) is zoomed / maximized at the start, so the system fits it to the work area (#2472); the row the 2026-10-13 entry promised is now in the table; status unchanged (🟡) |
 | 2026-10-21 | patch | LR-IMP-FORMATS: planar TIFF (PlanarConfiguration 2) decodes every band instead of failing with "sample buffer too short" (issue #2462); status unchanged (🟡) |
 | 2026-10-20 | patch | LR-VIEW-ZOOM: the 20 ms rule clears a slow-drag verdict only on a drag timed at full size; a drag that drafts small leaves it unchanged, as the code does; status unchanged |
 | 2026-10-19 | patch | LR-VIEW-ZOOM: the slow slider-drag verdict is described as per photo and control, as the code keys it; status unchanged |
