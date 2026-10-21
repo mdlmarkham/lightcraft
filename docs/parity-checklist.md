@@ -1,6 +1,6 @@
 # Lightroom parity checklist
 
-> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-21 · **Change:** minor (LR-PRE-PANEL: the applied-preset highlight is remembered per photo — switching photos and returning keeps it, and it clears on undo or further edits, issue #2392; LRC-LIB-PEOPLE: the People view gains a Sort dropdown — photo count (default) or name A–Z, issue #2496; LR-PRE-PANEL: the presets ⋯ menu gains Expand All Groups / Collapse All Groups, issue #2467; LR-MASK-RADIAL: the radial gradient gains a Feather slider and an on-canvas inner ellipse marking the full-effect boundary, issue #2488; status unchanged) · **Target:** Adobe Lightroom Classic 15.5 / Lightroom 9.6
+> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-21 · **Change:** minor (LR-VIEW-CLIPPING: Show Clipping (J) paints the clipped pixels themselves over the photo — highlights red, shadows blue — instead of a frame around it, issue #2396; LR-PRE-PANEL: the applied-preset highlight is remembered per photo — switching photos and returning keeps it, and it clears on undo or further edits, issue #2392; LRC-LIB-PEOPLE: the People view gains a Sort dropdown — photo count (default) or name A–Z, issue #2496; LR-PRE-PANEL: the presets ⋯ menu gains Expand All Groups / Collapse All Groups, issue #2467; LR-MASK-RADIAL: the radial gradient gains a Feather slider and an on-canvas inner ellipse marking the full-effect boundary, issue #2488; status unchanged) · **Target:** Adobe Lightroom Classic 15.5 / Lightroom 9.6
 
 The measured, row-by-row checklist: one row per Lightroom feature, menu item and shortcut, what we
 have and what is missing. It answers *does the feature exist?* (feature breadth). Whether it is good
@@ -140,7 +140,7 @@ differences and missing bindings are in [ui-parity.md](ui-parity.md#shortcuts).
 | LR-VIEW-INFOOVERLAY | Info overlay on the photo | P1 | ✅ | `cmd:view.infoOverlay` | off / file + date + size / exposure + camera; ⌘I cycles (I in full screen; elsewhere I stays the Info panel) |
 | LR-VIEW-SLIDESHOW | Slideshow | P2 | ✅ | `cmd:view.slideshow` | View ▸ Slideshow (⌥⌘↩): the photos in view full screen from the selected one, played with the library's playback settings (see LRC-SS-PLAYBACK: fades, random order, repeat, previews prepared ahead; `interval` / any setting overrides one run); Space pauses, ←/→ step (a cut), Esc ends; playback controls on pointer movement |
 | LR-VIEW-SECONDWINDOW | Second display window [Classic] | P2 | ✅ | `cmd:view.secondWindow`, `crates/ui-egui/src/panels/second.rs` | Window ▸ Second Window (⌘F11): the active photo fitted in its own native window with its own render (a floating panel where there are no native windows); loupe view only (no grid / compare / survey there) |
-| LR-VIEW-CLIPPING | Clipping indicators | P0 | ✅ | `cmd:view.clipping` | |
+| LR-VIEW-CLIPPING | Clipping indicators | P0 | ✅ | `cmd:view.clipping`, `crates/pipeline/src/visualize.rs` | J paints the clipped pixels themselves over the photo — any channel at 255 red, any at 0 blue (highlights win where both), live under slider drags (#2396); the histogram's clip fractions still drive the corner buttons |
 | LR-VIEW-HISTOGRAM | Histogram | P0 | ✅ | `cmd:view.histogram`, `crates/ui-egui/src/panels/edit.rs`, `crates/pipeline/src/lib.rs` (`hdr_histogram`) | HDR edits: SDR on the left half, the HDR range (0 to 5 stops above SDR white, a fixed scale) on the right with the headroom limit marked; colour bar (white, or Visualize HDR range's colours when that is on) and SDR / HDR labels; no drag-to-adjust on the histogram; it follows slider drags live (a small render beside the drafts, `Slot::HdrHistogram`) and never drops to the SDR layout mid-drag |
 | LR-VIEW-HDR-DISPLAY | HDR display output | P2 | ⬜ | |, `apps/lightcraft/src/hdr_display.rs` (`choose`, `preferred_hdr_format`) | SDR/HDR decision (platform, surface format, OS headroom, `LIGHTCRAFT_HDR_DISPLAY=0`) is unit-tested and logged at start; always SDR today because eframe configures an 8-bit surface; no OS headroom query yet;  |
 
@@ -798,6 +798,7 @@ Latin stays upright. Advanced Japanese composition remains open. Regression cove
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-21 | minor | LR-VIEW-CLIPPING: Show Clipping (J) paints the clipped pixels themselves over the photo — highlights red, shadows blue — instead of a frame around it (#2396); status unchanged (✅) |
 | 2026-10-21 | minor | LRC-LIB-PEOPLE: the People view gains a Sort dropdown in the header — Photo count (most first, the previous order, the default) or Name (A–Z) (#2496); status unchanged (🟡) |
 | 2026-10-21 | minor | LR-PRE-PANEL: the applied-preset highlight is remembered per photo (#2392); status unchanged (✅) |
 | 2026-10-21 | minor | LR-PRE-PANEL: the presets ⋯ menu gains Expand All Groups / Collapse All Groups (#2467); status unchanged (✅) |

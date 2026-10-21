@@ -2016,6 +2016,46 @@ mod tests {
         assert_eq!(shown(&h, a).as_deref(), Some("lc.bw-high-contrast"), "the edits are back");
     }
 
+    /// Show Clipping (J, #2396) paints the clipped pixels themselves over the photo — highlights
+    /// red, shadows blue — instead of the old non-spatial frame around it.
+    #[test]
+    fn show_clipping_paints_clipped_pixels() {
+        let mut h = demo([1400.0, 900.0]);
+        let t = Duration::from_secs(10);
+        h.request("ui.set", json!({"view": "detail"}), t);
+        h.app.renderer.keep_pixels = true;
+        h.settle(SETTLE);
+        let clipped = |h: &Headless| {
+            let tex = h.app.renderer.textures.get(&crate::render::Slot::Main).expect("loupe render");
+            let px = tex.pixels.as_ref().expect("pixels kept");
+            let [hi, lo] = lightcraft_pipeline::visualize::CLIP_COLORS;
+            (
+                px.pixels.iter().filter(|c| c.r() == hi[0] && c.g() == hi[1] && c.b() == hi[2]).count(),
+                px.pixels.iter().filter(|c| c.r() == lo[0] && c.g() == lo[1] && c.b() == lo[2]).count(),
+            )
+        };
+        // +4 EV: much of the photo clips white
+        h.request("engine.execute", json!({"command": "develop.set", "params": {"control": "light.exposure", "value": 4.0}}), t);
+        h.settle(SETTLE);
+        assert_eq!(clipped(&h), (0, 0), "no overlay before Show Clipping is on");
+        let r = h.request("engine.execute", json!({"command": "view.clipping"}), t);
+        assert_eq!(r["ok"], true, "{r}");
+        assert!(h.app.ui.show_clipping);
+        h.settle(SETTLE);
+        let (hi, _lo) = clipped(&h);
+        assert!(hi > 0, "clipped highlights are painted red");
+        // -8 EV: the shadows clip instead, the highlights mostly don't
+        h.request("engine.execute", json!({"command": "develop.set", "params": {"control": "light.exposure", "value": -8.0}}), t);
+        h.settle(SETTLE);
+        let (hi2, lo2) = clipped(&h);
+        assert!(lo2 > 0, "clipped shadows are painted blue");
+        assert!(hi2 < hi, "fewer clipped highlights at -8 EV");
+        // off again: no overlay
+        h.request("engine.execute", json!({"command": "view.clipping"}), t);
+        h.settle(SETTLE);
+        assert_eq!(clipped(&h), (0, 0), "no overlay when Show Clipping is off");
+    }
+
     /// The filter bar drives `library.filter` and saves the view as a smart album.
     #[test]
     fn filter_bar_filters_and_saves_a_smart_album() {

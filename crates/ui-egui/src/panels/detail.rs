@@ -830,9 +830,6 @@ pub fn show(app: &mut LightcraftApp, ui: &mut egui::Ui) {
     if app.ui.before_after == BeforeAfter::SplitTopBottom {
         p.line_segment([pos2(img_rect.left(), line.y), pos2(img_rect.right(), line.y)], Stroke::new(1.5, Color32::WHITE));
     }
-    if app.ui.show_clipping && !show_before && !fullscreen {
-        clipping_overlay(app, &p, img_rect);
-    }
     // View ▸ Loupe Overlay ▸ Layout Image, over the photo (the After view in a before/after)
     super::layout_overlay::draw(app, &p, img_rect);
     register(ui.ctx(), "canvas:image", img_rect);
@@ -1398,12 +1395,17 @@ fn targeted_drag(app: &mut LightcraftApp, resp: &egui::Response, map: &CanvasMap
     }
 }
 
-/// The diagnostic overlay the loupe shows (the selected mask, Point Color's visualized range,
-/// Visualize Spots).
+/// The diagnostic overlay the loupe shows (Show Clipping, the selected mask, Point Color's
+/// visualized range, Visualize Spots).
 pub(crate) fn view_overlay(app: &LightcraftApp, d: &DevelopSettings) -> lightcraft_pipeline::Overlay {
     use lightcraft_pipeline::{MaskView, Overlay};
     if app.ui.fullscreen {
         return Overlay::None;
+    }
+    // Show Clipping (J) is a global inspection mode: it wins over the panel visualizations, which
+    // come back when it is turned off.
+    if app.ui.show_clipping {
+        return Overlay::Clipping;
     }
     // Show every visible mask's region at once (Ctrl+Shift+O / Cmd+Shift+O), ahead of the selected-mask overlay
     // so the shortcut is not shadowed by the always-on single-mask overlay.
@@ -1437,19 +1439,6 @@ pub(crate) fn view_overlay(app: &LightcraftApp, d: &DevelopSettings) -> lightcra
         return Overlay::HdrRange;
     }
     Overlay::None
-}
-
-fn clipping_overlay(app: &LightcraftApp, p: &egui::Painter, r: Rect) {
-    // Highlight clipped regions using the histogram's extremes isn't spatial; show a subtle frame hint.
-    if let Some(h) = app.renderer.textures.get(&Slot::Main).and_then(|t| t.histogram.as_ref()) {
-        let (lo, hi) = h.clipping();
-        if hi > 0.003 {
-            p.rect_stroke(r, 0.0, Stroke::new(2.0, Color32::from_rgb(255, 60, 60)), StrokeKind::Outside);
-        }
-        if lo > 0.003 {
-            p.rect_stroke(r.expand(3.0), 0.0, Stroke::new(2.0, Color32::from_rgb(60, 120, 255)), StrokeKind::Outside);
-        }
-    }
 }
 
 fn general_cursor(app: &LightcraftApp, ui: &egui::Ui, resp: &egui::Response, img: Rect, canvas: Rect) {

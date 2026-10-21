@@ -39,10 +39,16 @@ pub enum Overlay {
     /// Visualize HDR (photos edited in HDR): the SDR image dimmed to grey, with every pixel the HDR
     /// rendition puts above SDR white painted by how far above it is ([`HDR_BANDS`]).
     HdrRange,
+    /// Show Clipping (J): display-clipped pixels painted over the photo — any channel at 255 red,
+    /// any at 0 blue ([`CLIP_COLORS`]; highlights win where a pixel clips both ways).
+    Clipping,
 }
 
 /// [`Overlay::HdrRange`] colours (sRGB) for 0–1, 1–2, 2–3 and ≥ 3 stops above SDR white.
 pub const HDR_BANDS: [[u8; 3]; 4] = [[255, 214, 92], [255, 150, 40], [235, 64, 52], [214, 60, 210]];
+
+/// [`Overlay::Clipping`] colours (sRGB): highlight clip, shadow clip (the histogram warning's).
+pub const CLIP_COLORS: [[u8; 3]; 2] = [[255, 60, 60], [60, 120, 255]];
 
 /// How [`Overlay::Mask`] draws the mask.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -125,6 +131,7 @@ impl Overlay {
             Overlay::Mask { id, view, color, opacity } => (3, pack_mask(id, view, color, opacity) as f64),
             Overlay::AllMasks { view, color, opacity } => (5, pack_mask(0, view, color, opacity) as f64),
             Overlay::HdrRange => (4, 0.0),
+            Overlay::Clipping => (6, 0.0),
         }
     }
 
@@ -135,6 +142,7 @@ impl Overlay {
             2 => Overlay::Spots(v.clamp(0.0, 100.0) as u8),
             3 if v.is_finite() && v >= 0.0 => unpack_mask(v as u64),
             4 => Overlay::HdrRange,
+            6 => Overlay::Clipping,
             5 if v.is_finite() && v >= 0.0 => {
                 let rgb = (v as u64 >> 20) & 0xff_ffff;
                 Overlay::AllMasks {
@@ -156,6 +164,7 @@ impl Overlay {
             Overlay::Mask { id, view, color, opacity } => 3 << 60 | pack_mask(id, view, color, opacity),
             Overlay::AllMasks { view, color, opacity } => 5 << 60 | pack_mask(0, view, color, opacity),
             Overlay::HdrRange => 0x4000,
+            Overlay::Clipping => 0x5000,
         }
     }
 
@@ -211,6 +220,21 @@ pub fn apply(img: &mut Rgba8, o: Overlay, plan: &Plan<'_>, mask: Option<&Plane>,
             if let Some(u) = &union {
                 mask_view(img, u, view, color, opacity);
             }
+        }
+        Overlay::Clipping => clipping(img),
+    }
+}
+
+/// Paint display-clipped pixels ([`Overlay::Clipping`]): any channel at 255 red, any at 0 blue
+/// (highlights win where a pixel clips both ways), the rest untouched.
+fn clipping(img: &mut Rgba8) {
+    let [hi, lo] = CLIP_COLORS;
+    for px in &mut img.data {
+        let [r, g, b, _] = *px;
+        if r == 255 || g == 255 || b == 255 {
+            *px = [hi[0], hi[1], hi[2], 255];
+        } else if r == 0 || g == 0 || b == 0 {
+            *px = [lo[0], lo[1], lo[2], 255];
         }
     }
 }
@@ -314,7 +338,7 @@ pub fn hdr_range(img: &mut Rgba8, hdr: &crate::DeepImage, luma: [f32; 3]) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{RenderRequest, SourceInfo, render};
+    use crate::{RenderRequest, SourceInfo, plan, render};
     use lightcraft_develop::PointColor;
     use lightcraft_raster::Rgb32f;
 
@@ -445,5 +469,59 @@ mod tests {
         let (k, v) = o.to_parts();
         assert_eq!(Overlay::from_parts(k, v), o);
         assert_ne!(o.key(), Overlay::Mask { id: 1, view: MaskView::WhiteOnBlack, color: [255, 0, 0], opacity: 100 }.key());
+    }
+
+    #[test]
+    fn clipping_overlay_paints_clipped_pixels() {
+        // left half white, right half black: at +6 EV the white clips high, the black clips low
+        let src = Rgb32f::from_fn(80, 40, |x, _| if x < 40 { [1.0; 3] } else { [0.0; 3] });
+        let info = SourceInfo::default();
+        let mut s = DevelopSettings::default();
+        s.light.exposure = 6.0;
+        let req = RenderRequest { overlay: Overlay::Clipping, ..RenderRequest::fit(80, 40) };
+        let img = render(&src, &info, &s, &req).image;
+        let [hi, lo] = CLIP_COLORS;
+        assert_eq!(img.data[20 * 80 + 10], [hi[0], hi[1], hi[2], 255], "clipped highlight painted red");
+        assert_eq!(img.data[20 * 80 + 70], [lo[0], lo[1], lo[2], 255], "clipped shadow painted blue");
+        let reds = img.data.iter().filter(|p| p[0] == hi[0] && p[1] == hi[1] && p[2] == hi[2]).count();
+        let blues = img.data.iter().filter(|p| p[0] == lo[0] && p[1] == lo[1] && p[2] == lo[2]).count();
+        assert!(reds > 30 * 40, "{reds} red pixels in the white half");
+        assert!(blues > 30 * 40, "{blues} blue pixels in the black half");
+        // without the overlay the same render is untouched
+        let plain = render(&src, &info, &s, &RenderRequest::fit(80, 40)).image;
+        assert_eq!(plain.data[20 * 80 + 10], [255, 255, 255, 255]);
+        assert_eq!(plain.data[20 * 80 + 70], [0, 0, 0, 255]);
+        // the painter alone: any channel at 255 red (highlights win over shadows), any at 0 blue,
+        // everything else untouched
+        let mut img = Rgba8 {
+            width: 4,
+            height: 2,
+            data: vec![
+                [255, 255, 255, 255],
+                [0, 255, 0, 255],
+                [0, 0, 0, 255],
+                [128, 128, 128, 255],
+                [255, 0, 0, 255],
+                [1, 1, 1, 255],
+                [0, 0, 255, 255],
+                [255, 128, 0, 255],
+            ],
+        };
+        let p = plan(&src, &info, &s, &req);
+        apply(&mut img, Overlay::Clipping, &p, None, None);
+        assert_eq!(img.data[0], [hi[0], hi[1], hi[2], 255]);
+        assert_eq!(img.data[1], [hi[0], hi[1], hi[2], 255], "green at 255 is a highlight clip");
+        assert_eq!(img.data[2], [lo[0], lo[1], lo[2], 255]);
+        assert_eq!(img.data[3], [128, 128, 128, 255], "mid grey untouched");
+        assert_eq!(img.data[4], [hi[0], hi[1], hi[2], 255], "red at 255 is a highlight clip");
+        assert_eq!(img.data[5], [1, 1, 1, 255], "near black is not a clip");
+        assert_eq!(img.data[6], [hi[0], hi[1], hi[2], 255], "blue at 255 wins over red at 0");
+        assert_eq!(img.data[7], [hi[0], hi[1], hi[2], 255]);
+        // parts round trip (web worker requests) and a distinct cache key
+        assert_eq!(Overlay::Clipping.to_parts(), (6, 0.0));
+        assert_eq!(Overlay::from_parts(6, 0.0), Overlay::Clipping);
+        assert_eq!(Overlay::from_parts(6, 7.0), Overlay::Clipping);
+        assert_eq!(Overlay::Clipping.key(), 0x5000);
+        assert_ne!(Overlay::Clipping.key(), Overlay::HdrRange.key());
     }
 }
