@@ -10,7 +10,7 @@ use lightcraft_engine::Session;
 use serde_json::json;
 
 use crate::headless::Headless;
-use crate::state::ViewMode;
+use crate::state::{AppearanceMode, ViewMode};
 use crate::{LightcraftApp, Services};
 
 const T: Duration = Duration::from_secs(30);
@@ -90,6 +90,39 @@ fn unchanged_grid_frames_reuse_the_view_and_visit_only_nearby_rows() {
         select(&mut h, far);
         assert_cheap_frames(&mut h);
     }
+}
+
+/// The file-type badge sits on a dark chip in every theme, so its text is always white: light
+/// mode's near-black label colour on the dark chip was unreadable (#2474).
+#[test]
+fn the_format_badge_is_readable_in_light_mode() {
+    let mut h = grid(ViewMode::SquareGrid);
+    h.app.ui.settings.appearance_mode = AppearanceMode::Light;
+    h.step();
+    h.step();
+    let shapes = h.view.painted_shapes();
+    let chips: Vec<egui::Rect> = shapes
+        .iter()
+        .filter_map(|s| match s {
+            egui::epaint::Shape::Rect(r) if r.fill == egui::Color32::from_gray(26) => Some(r.rect),
+            _ => None,
+        })
+        .collect();
+    assert!(!chips.is_empty(), "the grid draws dark file-type chips");
+    let mut checked = 0;
+    for s in &shapes {
+        let egui::epaint::Shape::Text(t) = s else { continue };
+        if t.galley.job.text != "JPEG" || !chips.iter().any(|c| c.contains(t.pos)) {
+            continue;
+        }
+        for row in &t.galley.rows {
+            for v in &row.visuals.mesh.vertices[row.visuals.glyph_vertex_range.clone()] {
+                assert_eq!(v.color, egui::Color32::WHITE, "badge text on the dark chip must be white");
+            }
+        }
+        checked += 1;
+    }
+    assert!(checked > 0, "the format badge's text is drawn on a chip");
 }
 
 #[test]

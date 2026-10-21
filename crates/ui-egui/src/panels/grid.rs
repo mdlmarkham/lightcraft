@@ -682,10 +682,12 @@ fn cell(app: &mut LightcraftApp, ui: &mut egui::Ui, id: PhotoId, r: Rect, square
         };
         p.text(pos2(r.left() + 8.0, r.top() + 12.0), Align2::LEFT_CENTER, name, t.font(10.5), t.text_dim);
         let fmt = photo.format.clone();
-        let g = p.layout_no_wrap(fmt, t.semibold(9.0), t.text_label);
+        // the chip is dark in every theme, so its text is always white (black in light mode was
+        // unreadable, #2474)
+        let g = p.layout_no_wrap(fmt, t.semibold(9.0), Color32::WHITE);
         let br = Rect::from_min_size(pos2(r.right() - g.size().x - 14.0, r.top() + 5.0), g.size() + vec2(8.0, 3.0));
         p.rect_filled(br, 2.0, Color32::from_gray(26));
-        p.galley(br.min + vec2(4.0, 1.5), g, t.text_label);
+        p.galley(br.min + vec2(4.0, 1.5), g, Color32::WHITE);
     }
     let show_badges = match app.ui.settings.grid_badges {
         crate::state::GridBadges::Auto => resp.hovered() || selected || photo.rating > 0 || photo.flag != Flag::None || photo.label.is_some(),
