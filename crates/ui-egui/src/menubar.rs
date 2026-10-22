@@ -741,9 +741,11 @@ fn node(app: &LightcraftApp, e: &MenuEntry) -> MenuNode {
     let shortcut = if e.id == "panel.presets" && crate::shortcuts::library_grid(app) { None } else { e.shortcut.as_deref() };
     // in an album the Delete key removes from the album (issue #1805): the menu says so
     let delete_key = crate::shortcuts::shortcut_of(&app.ui.settings.keymap, "photo.delete");
+    // G toggles Photo Grid ↔ Square Grid (#2500): both items advertise the toggle's key
     let shortcut = match e.id.as_str() {
         "album.removePhotos" => delete_key,
         "photo.delete" if matches!(app.session.source, lightcraft_engine::LibrarySource::Album(_)) => None,
+        "view.photoGrid" | "view.squareGrid" => crate::shortcuts::shortcut_of(&app.ui.settings.keymap, "view.gridToggle"),
         _ => shortcut,
     };
     item(&e.id, Value::Null, live_label(app, &e.id, &e.label), shortcut, e.enabled, checked(app, &e.id))
@@ -1087,6 +1089,23 @@ mod tests {
         assert!(matches!(find(&items, "library.holdView"), Some(MenuNode::Item { checked: Some(false), .. })), "off unless asked for");
         a.session.execute("library.holdView", &json!({"on": true})).expect("hold the view");
         assert!(matches!(find(&view(&a), "library.holdView"), Some(MenuNode::Item { checked: Some(true), .. })));
+    }
+
+    /// G toggles Photo Grid ↔ Square Grid (#2500): both View items advertise the toggle's key,
+    /// following the user's keymap, and clearing it clears both.
+    #[test]
+    fn grid_menu_items_advertise_the_toggle_shortcut() {
+        let shortcut_of = |a: &LightcraftApp, id: &str| match find(&menu_bar(a).into_iter().find(|(t, _)| t == "View").expect("View menu").1, id) {
+            Some(MenuNode::Item { shortcut, .. }) => shortcut.clone(),
+            other => panic!("{id}: {other:?}"),
+        };
+        let a = app();
+        assert_eq!(shortcut_of(&a, "view.photoGrid").as_deref(), Some("G"));
+        assert_eq!(shortcut_of(&a, "view.squareGrid").as_deref(), Some("G"));
+        let mut a = app();
+        a.ui.settings.keymap.insert("view.gridToggle".into(), "".into());
+        assert_eq!(shortcut_of(&a, "view.photoGrid"), None, "cleared: neither item shows a key");
+        assert_eq!(shortcut_of(&a, "view.squareGrid"), None);
     }
 
     /// The Sort submenu is expanded by hand: Reshuffle appears once (not again from the registry),
