@@ -1,9 +1,11 @@
 //! Geometry / optics tests on synthetic images with known distortions.
 
 use lightcraft_develop::{DevelopSettings, EmbeddedLens, EmbeddedVignette, EmbeddedWarp};
+use lightcraft_geom::Homography;
 use lightcraft_geom::Point;
 use lightcraft_raster::resample::{Filter, resize};
 use lightcraft_raster::{Rgb32f, Rgba8};
+use std::borrow::Cow;
 
 use crate::{RenderRequest, SourceInfo, render};
 
@@ -405,7 +407,7 @@ fn guided_upright_from_two_vertical_guides() {
         assert!(spread(&t) < 1.2, "guided: line near {x0} at {t:?}");
     }
     // a single guide only levels (rotation): it becomes vertical
-    let one = solve_guided(&[Segment { a: Point::new(0.1, -0.5), b: Point::new(0.12, 0.5) }]);
+    let one = solve_guided(&[Segment { a: Point::new(0.1, -0.5), b: Point::new(0.12, 0.5) }], 1.0);
     let p = one.apply(Point::new(0.1, -0.5));
     let q = one.apply(Point::new(0.12, 0.5));
     assert!((p.x - q.x).abs() < 1e-9, "single vertical guide becomes vertical: {p:?} {q:?}");
@@ -430,6 +432,30 @@ fn upright_analysis_is_resolution_independent() {
     s1.geometry.upright_transform = Some(b);
     let stored = render(&small, &SourceInfo::default(), &s1, &RenderRequest::fit(300, 300)).image;
     assert_eq!(lazy.data, stored.data);
+}
+
+/// The stored transform carries the `amount` it was solved with; a mismatch (a preset pasted onto a photo
+/// with a different amount, or settings from XMP) makes `resolve` re-solve it and restamp.
+#[test]
+fn upright_resolve_resolves_on_amount_mismatch_and_stamps() {
+    let src = Rgb32f::from_fn(64, 64, |_, _| [0.5, 0.5, 0.5]);
+    let info = SourceInfo::default();
+    let mut s = DevelopSettings::default();
+    s.geometry.upright = Upright::Vertical;
+    s.geometry.amount = 50.0;
+    s.geometry.upright_transform = Some(Homography([1.0, 0.0, 0.2, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]));
+    s.geometry.upright_amount = 100.0;
+    let r = crate::upright::resolve(&src, &info, &s);
+    assert!(matches!(r, Cow::Owned(_)), "stale stamp re-solves");
+    assert_eq!(r.geometry.upright_amount, 50.0, "resolved settings carry the new stamp");
+    assert_ne!(r.geometry.upright_transform, s.geometry.upright_transform);
+    let again = crate::upright::resolve(&src, &info, &r);
+    assert!(matches!(again, Cow::Borrowed(_)), "a matching stamp is kept");
+    // amount 100 with no stamp (old sidecars) also matches the default stamp
+    let mut old = DevelopSettings::default();
+    old.geometry.upright = Upright::Vertical;
+    old.geometry.upright_transform = Some(Homography::IDENTITY);
+    assert!(matches!(crate::upright::resolve(&src, &info, &old), Cow::Borrowed(_)));
 }
 
 /// Regression: Upright Auto must not invent perspective in natural scenes (conical trees, ridgelines, a level
@@ -465,7 +491,7 @@ fn debug_upright_scene() {
         eprintln!("  v {:.3},{:.3} -> {:.3},{:.3} len {:.3}", s.a.x, s.a.y, s.b.x, s.b.y, s.len());
     }
     for m in [Upright::Level, Upright::Vertical, Upright::Full, Upright::Auto] {
-        eprintln!("{m:?}: {:?}", crate::upright::solve(m, &a).0);
+        eprintln!("{m:?}: {:?}", crate::upright::solve(m, &a, 1.0).0);
     }
 }
 

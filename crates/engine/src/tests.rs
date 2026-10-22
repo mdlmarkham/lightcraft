@@ -465,6 +465,7 @@ fn upright_and_guides_commands() {
     let d = active_dev(&s);
     assert_eq!(d.geometry.upright, lightcraft_develop::Upright::Level);
     assert!(d.geometry.upright_transform.is_some(), "analysis result is stored");
+    assert!((d.geometry.upright_amount - 100.0).abs() < 1e-9, "stored with the current amount");
     s.execute("geometry.upright", &json!({"mode": "off"})).unwrap();
     assert!(active_dev(&s).geometry.upright_transform.is_none());
     for i in 0..5 {
@@ -478,6 +479,27 @@ fn upright_and_guides_commands() {
     let id = s.active().unwrap();
     assert!(s.render_now(id, 160, 160).is_ok());
     assert!(s.execute("geometry.upright", &json!({"mode": "sideways"})).is_err());
+}
+
+/// `geometry.amount` is a control (develop.set works on it); solving stores the stamp for the current
+/// amount, and rendering with a different amount re-solves per render (see pipeline `resolve`).
+#[test]
+fn upright_amount_control_and_stamp() {
+    let mut s = demo();
+    s.execute("geometry.upright", &json!({"mode": "vertical"})).unwrap();
+    assert!((active_dev(&s).geometry.upright_amount - 100.0).abs() < 1e-9);
+    s.execute("develop.set", &json!({"control": "geometry.amount", "value": 50})).unwrap();
+    assert!((active_dev(&s).geometry.amount - 50.0).abs() < 1e-9);
+    // re-solving stores the correction for the amount in effect
+    s.execute("geometry.upright", &json!({"mode": "vertical"})).unwrap();
+    let d = active_dev(&s);
+    assert!((d.geometry.upright_amount - 50.0).abs() < 1e-9, "stored with the current amount");
+    assert!(d.geometry.upright_transform.is_some());
+    let id = s.active().unwrap();
+    assert!(s.render_now(id, 160, 160).is_ok());
+    // the control spec exists with the Capture One range
+    let spec = lightcraft_develop::controls::find("geometry.amount").expect("geometry.amount spec");
+    assert_eq!((spec.min, spec.max, spec.default), (10.0, 120.0, 100.0));
 }
 
 #[test]

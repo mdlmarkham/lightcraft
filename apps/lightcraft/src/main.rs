@@ -1594,10 +1594,7 @@ mod tests {
         assert!(pass_fit(&mut |ctx| writer.tick(&mut app, ctx)).is_empty(), "the start is over");
 
         // a window as large as its screen after the start is the user's own doing
-        let mut writer = PrefsWriter {
-            window_since: Some(std::time::Instant::now() - std::time::Duration::from_secs(3)),
-            ..PrefsWriter::default()
-        };
+        let mut writer = PrefsWriter { window_since: Some(std::time::Instant::now() - std::time::Duration::from_secs(3)), ..PrefsWriter::default() };
         let commands = pass(&mut |ctx| writer.tick(&mut app, ctx));
         assert!(commands.is_empty(), "{commands:?}");
         assert!(writer.window_fitted);

@@ -832,6 +832,12 @@ pub struct Geometry {
     /// homography lens-corrected → transformed in centred coordinates (`(p − centre) / (long edge / 2)`).
     /// Stored so previews and exports use the identical transform; recomputed by `geometry.upright`.
     pub upright_transform: Option<Homography>,
+    /// The `amount` the stored `upright_transform` was solved with; a mismatch makes the pipeline
+    /// re-solve it (analysis is cached, so this is cheap).
+    pub upright_amount: f64,
+    /// How much of the Upright correction to apply, in percent (10–120, 100 = full). Over 100
+    /// over-corrects, under 100 leaves verticals slightly converging, like Capture One's Keystone Amount.
+    pub amount: f64,
     pub vertical: f64,
     pub horizontal: f64,
     pub rotate: f64,
@@ -848,6 +854,8 @@ impl Default for Geometry {
             upright: Upright::Off,
             guides: Vec::new(),
             upright_transform: None,
+            upright_amount: 100.0,
+            amount: 100.0,
             vertical: 0.0,
             horizontal: 0.0,
             rotate: 0.0,

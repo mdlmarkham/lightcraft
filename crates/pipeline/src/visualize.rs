@@ -674,9 +674,8 @@ mod tests {
             },
         };
         let info = SourceInfo { sensor_clip: Some(std::sync::Arc::new(clip)), ..SourceInfo::default() };
-        let mut s = DevelopSettings::default();
         // Rotate Right: the output is 40×80 and the photosite at source (10, 20) shows at (19, 10)
-        s.orientation = lightcraft_geom::Orientation::Rotate90;
+        let mut s = DevelopSettings { orientation: lightcraft_geom::Orientation::Rotate90, ..DevelopSettings::default() };
         let req = RenderRequest { overlay: Overlay::SensorClipping, ..RenderRequest::fit(40, 80) };
         let img = render(&src, &info, &s, &req).image;
         let img_plain = render(&src, &info, &s, &RenderRequest::fit(40, 80)).image;

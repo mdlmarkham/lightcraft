@@ -770,6 +770,7 @@ pub fn specs() -> Vec<CommandSpec> {
                 edit(s, "geometry.upright", "Upright", |d| {
                     d.geometry.upright = mode;
                     d.geometry.upright_transform = transform;
+                    d.geometry.upright_amount = d.geometry.amount;
                     Ok(())
                 })?;
                 Ok(json!({"mode": mode, "transform": transform}))
