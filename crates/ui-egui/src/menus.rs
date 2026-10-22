@@ -1331,7 +1331,16 @@ pub fn run_ui_command(app: &mut LightcraftApp, id: &str, p: &Value) -> Option<Re
             Ok(Value::Null)
         }
         "dialog.captureTime" => {
-            let time = app.session.active().and_then(|id| app.session.catalog.photo(id)).map(|p| p.date().replace('T', " ")).unwrap_or_default();
+            // an unreadable capture time would prefill Set mode with a misread (`2026-01-01T10:0`
+            // reads as midnight), so the field starts empty instead
+            let time = app
+                .session
+                .active()
+                .and_then(|id| app.session.catalog.photo(id))
+                .map(|p| p.date().to_string())
+                .filter(|t| lightcraft_catalog::dates::readable_iso(t))
+                .unwrap_or_default()
+                .replace('T', " ");
             let mode = p.get("mode").and_then(Value::as_str).unwrap_or("set").to_string();
             app.ui.dialog =
                 Some(Dialog::CaptureTime { mode, time: time.get(..19).unwrap_or(&time).to_string(), days: 0, hours: 0, minutes: 0, zone: 0.0 });
