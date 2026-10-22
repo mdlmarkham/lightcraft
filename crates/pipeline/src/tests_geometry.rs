@@ -478,6 +478,81 @@ fn upright_auto_leaves_natural_scenes_nearly_alone() {
     }
 }
 
+/// Full quality resamples geometrically with Mitchell bicubic, drafts with bilinear — and the two
+/// must not share a stage-cache entry (`Plan::geo` carries the flag).
+#[test]
+fn full_quality_plans_bicubic_and_keys_it_into_the_geo_hash() {
+    let src = lightcraft_scenes::demo_library()[0].render_fit(400);
+    let info = SourceInfo::default();
+    let mut s = DevelopSettings::default();
+    s.geometry.rotate = 5.0;
+    let full = crate::plan(&src, &info, &s, &RenderRequest::fit(200, 200));
+    let draft = crate::plan(&src, &info, &s, &RenderRequest { quality: crate::Quality::Draft, ..RenderRequest::fit(200, 200) });
+    assert!(full.bicubic, "full quality plans bicubic");
+    assert!(!draft.bicubic, "a draft plans bilinear");
+    assert_ne!(full.geo, draft.geo, "the kernel is part of the resample's cache key");
+    // with no geometry the sample is a copy, but the plan still records the request's quality
+    let plain_s = DevelopSettings::default();
+    let plain = crate::plan(&src, &info, &plain_s, &RenderRequest::fit(200, 200));
+    assert!(plain.bicubic);
+}
+
+/// A cached draft render must never serve its bilinear sample to a later full render of the same
+/// view (and the reverse): the sampled stage is keyed with the kernel.
+#[test]
+fn stage_cache_keeps_draft_and_full_samples_apart() {
+    use crate::{Quality, StageCache, render_cached};
+    use std::sync::Arc;
+    let src = Arc::new(lightcraft_scenes::demo_library()[0].render_fit(400));
+    let info = SourceInfo::default();
+    let mut s = DevelopSettings::default();
+    s.geometry.rotate = 5.0;
+    let cache = StageCache::default();
+    let req = RenderRequest::fit(200, 200);
+    let draft = RenderRequest { quality: Quality::Draft, ..req };
+    let full_uncached = render(&src, &info, &s, &req).image;
+    let draft_uncached = render(&src, &info, &s, &draft).image;
+    assert_ne!(full_uncached, draft_uncached, "the kernels really differ on a rotated render");
+    // draft first, then full: the full render must resample, not reuse the draft's entry
+    let a = render_cached(&src, &info, &s, &draft, &cache).image;
+    assert_eq!(a, draft_uncached);
+    let b = render_cached(&src, &info, &s, &req, &cache).image;
+    assert_eq!(b, full_uncached, "a cached full render after a draft matches an uncached one");
+    // and back: the draft still gets its own sample
+    let c = render_cached(&src, &info, &s, &draft, &cache).image;
+    assert_eq!(c, draft_uncached);
+}
+
+/// A 1:1 window of a pixel-aligned crop shows the exact source pixels — what a full-size export
+/// writes (LR-VIEW-ZOOM). A kernel at the half-pixel offsets would soften them (regression: the
+/// bicubic sampler blurred zoomed windows by up to 2 levels).
+#[test]
+fn a_one_to_one_window_of_a_pixel_aligned_crop_is_the_exact_pixels() {
+    // Sharp two-level stripes: any kernel average would move them.
+    let (w, h) = (64, 48);
+    let src = Rgb32f::from_fn(w, h, |x, y| {
+        let v = if (x / 3 + y / 2) % 2 == 0 { 0.9 } else { 0.1 };
+        [v, v * 0.5, 1.0 - v]
+    });
+    let win = crate::PixelWindow { x: 8, y: 5, w: 40, h: 24 };
+    let s = DevelopSettings::default();
+    let mut frame = crate::geometry::Frame::new(w, h, &s, false);
+    let out = frame.window(w, h, win).sample_quality(&src, win.w, win.h, true);
+    for y in 0..win.h {
+        for x in 0..win.w {
+            assert_eq!(out.data[y * win.w + x], src.data[(win.y + y) * w + (win.x + x)], "pixel ({x}, {y})");
+        }
+    }
+    // the same through a horizontal flip: the window is the reversed copy
+    frame.flip_h = true;
+    let out = frame.window(w, h, win).sample_quality(&src, win.w, win.h, true);
+    for y in 0..win.h {
+        for x in 0..win.w {
+            assert_eq!(out.data[y * win.w + x], src.data[(win.y + y) * w + (w - 1 - (win.x + x))], "flipped pixel ({x}, {y})");
+        }
+    }
+}
+
 /// Diagnostics: `SCENE="Lake" cargo test -p lightcraft-pipeline debug_upright_scene -- --ignored --nocapture`.
 #[test]
 #[ignore]
