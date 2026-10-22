@@ -117,6 +117,10 @@ pub struct DevelopSettings {
     /// the default, so settings without HDR keep their JSON and `hash64` (and every cached preview stays valid).
     #[serde(skip_serializing_if = "Hdr::is_default")]
     pub hdr: Hdr,
+    /// The base curve raws render through (issue #2396 §2). Omitted when the default, so settings
+    /// without it keep their JSON (and hash).
+    #[serde(skip_serializing_if = "BaseCurve::is_default")]
+    pub base_curve: BaseCurve,
     pub curve: ToneCurve,
     pub color: ColorAdj,
     pub mixer: Mixer,
@@ -153,6 +157,7 @@ impl Default for DevelopSettings {
             wb: WhiteBalance::default(),
             light: Light::default(),
             hdr: Hdr::default(),
+            base_curve: BaseCurve::default(),
             curve: ToneCurve::default(),
             color: ColorAdj::default(),
             mixer: Mixer::default(),
@@ -184,6 +189,64 @@ pub enum Treatment {
     #[default]
     Color,
     Bw,
+}
+
+/// The base curve a raw's scene-linear values go through before the user's tone controls (issue
+/// #2396 §2): the camera's fitted tone curve or the Reinhard shoulder (the default), a linear
+/// response with a gentle roll-off into display white, or plain linear identity. Display-referred
+/// sources always render as [`BaseCurve::Camera`]: their values are already display-encoded, there
+/// is no headroom to keep.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum BaseCurve {
+    /// Today's rendering: the camera tone curve fitted to the embedded JPEG, or the extended
+    /// Reinhard shoulder when there is none.
+    #[default]
+    Camera,
+    /// Scene-linear values to display with no contrast curve, plus a gentle roll-off close to the
+    /// clip so highlights aren't hard-clipped (Capture One's Linear Response).
+    LinearResponse,
+    /// Identity, which may clip: for reproduction, copy work and profiling.
+    Linear,
+}
+
+impl BaseCurve {
+    /// Whether this is the default (the field is omitted, so settings without it keep their JSON
+    /// and hash).
+    pub fn is_default(&self) -> bool {
+        *self == BaseCurve::Camera
+    }
+
+    /// The wire name (`camera`, `linear-response`, `linear`), for commands and the UI.
+    pub fn wire(self) -> &'static str {
+        match self {
+            BaseCurve::Camera => "camera",
+            BaseCurve::LinearResponse => "linear-response",
+            BaseCurve::Linear => "linear",
+        }
+    }
+
+    /// The base curve a wire name names (see [`BaseCurve::wire`]).
+    pub fn parse(wire: &str) -> Option<Self> {
+        match wire {
+            "camera" => Some(BaseCurve::Camera),
+            "linear-response" => Some(BaseCurve::LinearResponse),
+            "linear" => Some(BaseCurve::Linear),
+            _ => None,
+        }
+    }
+
+    /// The dropdown label.
+    pub fn label(self) -> &'static str {
+        match self {
+            BaseCurve::Camera => "Camera",
+            BaseCurve::LinearResponse => "Linear Response",
+            BaseCurve::Linear => "Linear",
+        }
+    }
+
+    /// Every base curve, in dropdown order.
+    pub const ALL: [BaseCurve; 3] = [BaseCurve::Camera, BaseCurve::LinearResponse, BaseCurve::Linear];
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

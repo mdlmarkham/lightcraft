@@ -879,6 +879,23 @@ fn auto_bw_mix_separates_colours() {
 }
 
 #[test]
+fn base_curve_sets_and_reverts() {
+    let mut s = demo();
+    assert_eq!(active_dev(&s).base_curve, lightcraft_develop::BaseCurve::Camera);
+    for wire in ["linear-response", "linear", "camera"] {
+        let r = s.execute("develop.baseCurve", &json!({"curve": wire})).unwrap();
+        assert_eq!(r["baseCurve"], json!(wire));
+        assert_eq!(active_dev(&s).base_curve.wire(), wire);
+    }
+    assert!(s.execute("develop.baseCurve", &json!({"curve": "filmic"})).is_err(), "unknown curve");
+    assert_eq!(active_dev(&s).base_curve, lightcraft_develop::BaseCurve::Camera, "a bad call changes nothing");
+    // camera → linear-response → camera is two undo steps
+    s.execute("develop.baseCurve", &json!({"curve": "linear"})).unwrap();
+    s.execute("edit.undo", &json!({})).unwrap();
+    assert_eq!(active_dev(&s).base_curve, lightcraft_develop::BaseCurve::Camera, "one undo step");
+}
+
+#[test]
 fn auto_sync_carries_only_the_changed_settings() {
     use lightcraft_catalog::PhotoId;
     let mut s = demo();
