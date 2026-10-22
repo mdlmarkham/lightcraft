@@ -101,6 +101,7 @@ pub const UI_COMMANDS: &[UiCommand] = &[
     ("view.thumbSizeUp", "Increase Grid Thumbnail Size", Some("="), "View"),
     ("view.thumbSizeDown", "Decrease Grid Thumbnail Size", Some("-"), "View"),
     ("view.clipping", "Show Clipping", Some("J"), "View"),
+    ("view.sensorClipping", "Show Sensor Clipping", Some("Shift+K"), "View"),
     ("view.visualizeHdr", "Visualize HDR", None, "View"),
     // in grids S expands/collapses stacks (the engine command it shadows)
     ("view.softProof", "Soft Proofing", Some("S"), "View"),
@@ -898,6 +899,16 @@ pub fn run_ui_command(app: &mut LightcraftApp, id: &str, p: &Value) -> Option<Re
         }
         "view.clipping" => {
             app.ui.show_clipping = !app.ui.show_clipping;
+            if app.ui.show_clipping {
+                app.ui.show_sensor_clipping = false;
+            }
+            Ok(Value::Null)
+        }
+        "view.sensorClipping" => {
+            app.ui.show_sensor_clipping = !app.ui.show_sensor_clipping;
+            if app.ui.show_sensor_clipping {
+                app.ui.show_clipping = false;
+            }
             Ok(Value::Null)
         }
         "view.visualizeHdr" => {

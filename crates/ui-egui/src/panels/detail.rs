@@ -1395,8 +1395,8 @@ fn targeted_drag(app: &mut LightcraftApp, resp: &egui::Response, map: &CanvasMap
     }
 }
 
-/// The diagnostic overlay the loupe shows (Show Clipping, the selected mask, Point Color's
-/// visualized range, Visualize Spots).
+/// The diagnostic overlay the loupe shows (Show Clipping, Show Sensor Clipping, the selected mask,
+/// Point Color's visualized range, Visualize Spots).
 pub(crate) fn view_overlay(app: &LightcraftApp, d: &DevelopSettings) -> lightcraft_pipeline::Overlay {
     use lightcraft_pipeline::{MaskView, Overlay};
     if app.ui.fullscreen {
@@ -1406,6 +1406,10 @@ pub(crate) fn view_overlay(app: &LightcraftApp, d: &DevelopSettings) -> lightcra
     // come back when it is turned off.
     if app.ui.show_clipping {
         return Overlay::Clipping;
+    }
+    // Show Sensor Clipping (Shift+K, raws only) likewise; the two are mutually exclusive.
+    if app.ui.show_sensor_clipping {
+        return Overlay::SensorClipping;
     }
     // Show every visible mask's region at once (Ctrl+Shift+O / Cmd+Shift+O), ahead of the selected-mask overlay
     // so the shortcut is not shadowed by the always-on single-mask overlay.

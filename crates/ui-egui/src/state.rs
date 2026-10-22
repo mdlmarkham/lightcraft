@@ -699,6 +699,9 @@ pub struct UiState {
     /// Solo Mode (`view.soloSections`): opening one Edit section closes the others.
     pub single_panel: bool,
     pub show_clipping: bool,
+    /// Show Sensor Clipping (Shift+K, raws only): photosites at the sensor's clip level, per
+    /// colour channel, before any adjustment. Mutually exclusive with [`Self::show_clipping`].
+    pub show_sensor_clipping: bool,
     pub histogram: bool,
     /// Soft proofing (S in the loupe): render as `proof` would hold the photo.
     pub soft_proof: bool,
@@ -1323,6 +1326,7 @@ impl Default for UiState {
             open_flyouts: vec![],
             single_panel: false,
             show_clipping: false,
+            show_sensor_clipping: false,
             histogram: true,
             soft_proof: false,
             proof: lightcraft_engine::pipeline::Proof { dest_warning: false, ..Default::default() },

@@ -2056,6 +2056,40 @@ mod tests {
         assert_eq!(clipped(&h), (0, 0), "no overlay when Show Clipping is off");
     }
 
+    /// Show Sensor Clipping (Shift+K, #2396) is a separate inspection mode, mutually exclusive
+    /// with Show Clipping. The demo library has no raws, so nothing is painted — the overlay's
+    /// painting itself is covered by the pipeline tests.
+    #[test]
+    fn sensor_clipping_toggles_and_excludes_display_clipping() {
+        let mut h = demo([1400.0, 900.0]);
+        let t = Duration::from_secs(10);
+        h.request("ui.set", json!({"view": "detail"}), t);
+        h.app.renderer.keep_pixels = true;
+        h.settle(SETTLE);
+        let r = h.request("engine.execute", json!({"command": "view.sensorClipping"}), t);
+        assert_eq!(r["ok"], true, "{r}");
+        assert!(h.app.ui.show_sensor_clipping);
+        assert!(!h.app.ui.show_clipping, "sensor clipping turns display clipping off");
+        h.settle(SETTLE);
+        // a non-raw has no sensor clip data: the render must not change or crash
+        let tex = h.app.renderer.textures.get(&crate::render::Slot::Main).expect("loupe render");
+        let px = tex.pixels.as_ref().expect("pixels kept");
+        let painted = px
+            .pixels
+            .iter()
+            .any(|c| lightcraft_pipeline::visualize::SENSOR_CLIP_COLORS.iter().any(|k| c.r() == k[0] && c.g() == k[1] && c.b() == k[2]));
+        assert!(!painted, "no sensor clip marks without sensor clip data");
+        // and the other way round
+        h.request("engine.execute", json!({"command": "view.clipping"}), t);
+        h.settle(SETTLE);
+        assert!(h.app.ui.show_clipping);
+        assert!(!h.app.ui.show_sensor_clipping, "display clipping turns sensor clipping off");
+        h.request("engine.execute", json!({"command": "view.sensorClipping"}), t);
+        h.settle(SETTLE);
+        assert!(h.app.ui.show_sensor_clipping);
+        assert!(!h.app.ui.show_clipping);
+    }
+
     /// The filter bar drives `library.filter` and saves the view as a smart album.
     #[test]
     fn filter_bar_filters_and_saves_a_smart_album() {
