@@ -21,6 +21,46 @@ fn up_and_down_move_by_rows_and_stop_at_the_ends() {
     assert_eq!(s.selection.active, vis.last().copied(), "hostile counts clamp, never overflow");
 }
 
+/// Culling with an active filter (#2312): removing the rating of the active photo takes it out
+/// of the view; `library.next` must continue at the next photo of the sequence, not restart at
+/// the first one that still matches.
+#[test]
+fn next_after_the_active_photo_left_the_filter_continues_in_sequence() {
+    let mut s = Session::with_demo();
+    let vis = s.visible_cloned();
+    assert!(vis.len() >= 4, "demo library too small: {}", vis.len());
+    // every photo one star, except the second: the filter shows all but that one
+    for (i, id) in vis.iter().enumerate() {
+        if i == 1 {
+            continue;
+        }
+        s.execute("photo.rate", &json!({"ids": [id.0], "rating": 1})).unwrap();
+    }
+    s.execute("library.filter", &json!({"rating": 1, "ratingOp": "exactly"})).unwrap();
+    let filtered = s.visible_cloned();
+    assert_eq!(filtered.len(), vis.len() - 1);
+    assert!(!filtered.contains(&vis[1]));
+
+    // stand on the second filtered photo and take its star away: it leaves the view
+    let second = filtered[1];
+    s.selection = crate::Selection::single(second);
+    s.execute("photo.rate", &json!({"ids": [second.0], "rating": 0})).unwrap();
+    assert!(!s.visible_cloned().contains(&second), "the photo no longer matches the filter");
+
+    // next continues in sequence (the photo after the one that dropped out), not at the top
+    s.execute("library.next", &json!({})).unwrap();
+    let expected = filtered[2];
+    assert_eq!(s.selection.active, Some(expected), "no restart at the first photo");
+
+    // previous from a photo whose predecessor just left the filter: the one before that
+    let last = *filtered.last().unwrap();
+    s.selection = crate::Selection::single(last);
+    s.execute("photo.rate", &json!({"ids": [last.0], "rating": 0})).unwrap();
+    s.execute("library.previous", &json!({})).unwrap();
+    let remaining = s.visible_cloned();
+    assert_eq!(s.selection.active, remaining.last().copied(), "previous continues backwards");
+}
+
 fn spots(s: &Session) -> Vec<lightcraft_develop::Spot> {
     s.develop_of(s.active().unwrap()).unwrap().spots.clone()
 }

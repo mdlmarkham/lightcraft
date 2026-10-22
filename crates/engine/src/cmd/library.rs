@@ -242,13 +242,34 @@ fn step(s: &mut Session, d: isize) -> Result<Value> {
     let cur = s.selection.active.and_then(|a| vis.iter().position(|x| *x == a));
     let next = match cur {
         Some(i) => (i as isize + d).clamp(0, vis.len() as isize - 1) as usize,
-        None => 0,
+        None => {
+            // The active photo just left the view (e.g. its rating no longer matches the
+            // filter while culling): continue at the nearest visible neighbour in source
+            // order instead of jumping back to the first photo (#2312).
+            neighbour_index(s, d, &vis).unwrap_or(0)
+        }
     };
     s.end_interaction()?;
     s.selection = Selection::single(vis[next]);
     s.active_mask = None;
     s.active_spot = None;
     Ok(json!({"active": vis[next].0}))
+}
+
+/// Index in `vis` of the visible photo nearest to the (no longer visible) active one, searched
+/// in step direction first. The sequence is the source order without the filter bar — the order
+/// the user culls in — so a photo that drops out of the filter keeps its position.
+fn neighbour_index(s: &mut Session, d: isize, vis: &[PhotoId]) -> Option<usize> {
+    let active = s.selection.active?;
+    let sequence = s.catalog.query(&s.view_filter(s.source, &Filter::default()), &s.sort);
+    let at = sequence.iter().position(|x| *x == active)?;
+    let after = sequence.get(at + 1..).unwrap_or(&[]);
+    let before = sequence.get(..at).unwrap_or(&[]);
+    let pick = |ids: &[PhotoId], rev: bool| -> Option<usize> {
+        let mut iter: Box<dyn Iterator<Item = &PhotoId>> = if rev { Box::new(ids.iter().rev()) } else { Box::new(ids.iter()) };
+        iter.find(|id| vis.contains(id)).and_then(|id| vis.iter().position(|v| v == id))
+    };
+    if d >= 0 { pick(after, false).or_else(|| pick(before, true)) } else { pick(before, true).or_else(|| pick(after, false)) }
 }
 
 /// `library.up` / `library.down`: how many photos to move (at least 1, capped so hostile input
